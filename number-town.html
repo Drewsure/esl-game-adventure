@@ -184,8 +184,8 @@ const WORLDS=[
   {id:'small',name:'Small Numbers',emoji:'3️⃣',color:'#F97316',desc:'Numbers 1-6'},
   {id:'big',name:'Big Numbers',emoji:'6️⃣',color:'#3B82F6',desc:'Numbers 1-9'},
   {id:'master',name:'Master Numbers',emoji:'1️⃣2️⃣',color:'#8B5CF6',desc:'Numbers 1-12'},
+  {id:'boss',name:'BOSS WORLD!',emoji:'🦈',color:'#DC2626',desc:'Defeat the Number Shark!'},
 ];
-const WORLD_LEVEL_ORDER={tiny:['ti-1','ti-2','ti-3','ti-4','ti-5','ti-6','ti-7','ti-8','ti-9'],small:['sm-1','sm-2','sm-3','sm-4','sm-5','sm-6','sm-7','sm-8','sm-9'],big:['bi-1','bi-2','bi-3','bi-4','bi-5','bi-6','bi-7','bi-8','bi-9'],master:['ma-1','ma-2','ma-3','ma-4','ma-5','ma-6','ma-7','ma-8','ma-9']};
 const LEVELS=[
   {id:'ti-1',worldId:'tiny',index:0,title:'Count 1-2-3',mode:'countObjects',maxNum:3,ageGroup:'3-5'},
   {id:'ti-2',worldId:'tiny',index:1,title:'Listen to Numbers',mode:'listenMatch',maxNum:3,ageGroup:'4-7'},
@@ -219,12 +219,15 @@ const LEVELS=[
   {id:'ma-6',worldId:'master',index:5,title:'Master Numbers',mode:'readNumber',maxNum:12,ageGroup:'5-9'},
   {id:'ma-7',worldId:'master',index:6,title:'Master Detective',mode:'challenge',maxNum:12,ageGroup:'6-9'},
   {id:'ma-8',worldId:'master',index:7,title:'Grand Master',mode:'challenge',maxNum:12,ageGroup:'6-9'},
-  // BOSS LEVELS (Level 9) - unique Number Rocket game
-  {id:'ti-9',worldId:'tiny',index:8,title:'🚀 Tiny Rocket!',mode:'numberRocket',maxNum:3,ageGroup:'3-9'},
-  {id:'sm-9',worldId:'small',index:8,title:'🚀 Small Rocket!',mode:'numberRocket',maxNum:6,ageGroup:'3-9'},
-  {id:'bi-9',worldId:'big',index:8,title:'🚀 Big Rocket!',mode:'numberRocket',maxNum:9,ageGroup:'3-9'},
-  {id:'ma-9',worldId:'master',index:8,title:'🚀 Master Rocket!',mode:'numberRocket',maxNum:12,ageGroup:'3-9'},
+  // BOSS WORLD - Number Shark Battle (inspired by Mido's POP game)
+  {id:'bo-1',worldId:'boss',index:0,title:'🦈 Shark Battle 1-3',mode:'sharkBattle',maxNum:3,ageGroup:'3-9'},
+  {id:'bo-2',worldId:'boss',index:1,title:'🦈 Shark Battle 1-6',mode:'sharkBattle',maxNum:6,ageGroup:'3-9'},
+  {id:'bo-3',worldId:'boss',index:2,title:'🦈 Shark Battle 1-9',mode:'sharkBattle',maxNum:9,ageGroup:'3-9'},
+  {id:'bo-4',worldId:'boss',index:3,title:'🦈 FINAL BATTLE 1-12',mode:'sharkBattle',maxNum:12,ageGroup:'3-9'},
 ];
+// Build WORLD_LEVEL_ORDER from LEVELS
+const WORLD_LEVEL_ORDER={};LEVELS.forEach(l=>{if(!WORLD_LEVEL_ORDER[l.worldId])WORLD_LEVEL_ORDER[l.worldId]=[];WORLD_LEVEL_ORDER[l.worldId].push(l.id);});
+
 // SVG number display - shows dots/objects to count
 function numSVG(n, color) {
   color = color || NUM_COLORS[n-1] || '#3B82F6';
@@ -247,7 +250,7 @@ function loadState(){try{const s=JSON.parse(localStorage.getItem('number-town-sa
 function saveState(){try{localStorage.setItem('number-town-save',JSON.stringify({characterId:state.characterId,soundEnabled:state.soundEnabled,narrationEnabled:state.narrationEnabled,progress:state.progress}));}catch(e){}}
 function totalStars(){return Object.values(state.progress).reduce((s,p)=>s+(p.stars||0),0);}
 function isLevelUnlocked(id,wid){const ls=WORLD_LEVEL_ORDER[wid];const i=ls.indexOf(id);if(i<=0)return true;return state.progress[ls[i-1]]?.completed||false;}
-function isWorldUnlocked(wid){const o=['tiny','small','big','master'];const i=o.indexOf(wid);if(i<=0)return true;return WORLD_LEVEL_ORDER[o[i-1]].every(id=>state.progress[id]?.completed);}
+function isWorldUnlocked(wid){const o=['tiny','small','big','master','boss'];const i=o.indexOf(wid);if(i<=0)return true;return WORLD_LEVEL_ORDER[o[i-1]].every(id=>state.progress[id]?.completed);}
 // AUDIO
 let audioCtx=null;function getAudioCtx(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return null;}}if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});return audioCtx;}
 function playTone(f,d,t,g,st){t=t||'sine';g=g||0.15;st=st||0;const c=getAudioCtx();if(!c)return;const o=c.createOscillator();const ga=c.createGain();o.type=t;o.frequency.value=f;const n=c.currentTime+st;ga.gain.setValueAtTime(0,n);ga.gain.linearRampToValueAtTime(g,n+0.01);ga.gain.exponentialRampToValueAtTime(0.001,n+d);o.connect(ga);ga.connect(c.destination);o.start(n);o.stop(n+d+0.05);}
@@ -279,7 +282,7 @@ function renderMap(){
   const g=document.getElementById('worlds-grid');g.innerHTML='';
   WORLDS.forEach(w=>{const u=isWorldUnlocked(w.id);const wl=LEVELS.filter(l=>l.worldId===w.id);const ws=wl.reduce((s,l)=>s+(state.progress[l.id]?.stars||0),0);const ms=wl.length*3;
     const c=document.createElement('div');c.className='world-card';c.style.background=u?'linear-gradient(135deg,'+w.color+'33,'+w.color+'66)':'linear-gradient(135deg,#D1D5DB,#9CA3AF)';
-    let lh='';wl.forEach((l,i)=>{const lu=isLevelUnlocked(l.id,w.id);const st=state.progress[l.id]?.stars||0;const co=state.progress[l.id]?.completed;const mi={countObjects:'🔢',listenMatch:'👂',memoryMatch:'🃏',nameNumber:'🏷️',sentenceBuilder:'📝',readNumber:'📖',challenge:'🏆',numberRocket:'🚀'};
+    let lh='';wl.forEach((l,i)=>{const lu=isLevelUnlocked(l.id,w.id);const st=state.progress[l.id]?.stars||0;const co=state.progress[l.id]?.completed;const mi={countObjects:'🔢',listenMatch:'👂',memoryMatch:'🃏',nameNumber:'🏷️',sentenceBuilder:'📝',readNumber:'📖',challenge:'🏆',numberRocket:'🚀',sharkBattle:'🦈'};
       lh+='<button class="level-btn" '+(lu?'':'disabled')+' onclick="startLevel(\''+w.id+'\',\''+l.id+'\')"><div class="level-num" style="color:'+w.color+'">L'+(i+1)+'</div><div class="level-icon">'+(lu?mi[l.mode]:'🔒')+'</div><div class="level-title">'+l.title+'</div><div class="level-stars">'+[1,2,3].map(n=>'<span class="'+(n<=st?'':'dim')+'">⭐</span>').join('')+'</div>'+(co?'<div class="level-check">✓</div>':'')+'</button>';});
     c.innerHTML='<div class="world-header" style="background:'+(u?w.color:'#6B7280')+'"><div class="world-header-content"><span class="world-emoji">'+w.emoji+'</span><div><div class="world-name">'+w.name+'</div><div class="world-desc">'+w.desc+'</div></div></div><div class="world-stars"><span>⭐</span><span>'+ws+'/'+ms+'</span></div></div><div class="levels-grid">'+lh+'</div>'+(u?'':'<div class="locked-overlay"><div class="lock">🔒</div><p>Locked!</p></div>')+'</div>';
     g.appendChild(c);});
@@ -287,11 +290,11 @@ function renderMap(){
 function startLevel(wid,lid){const l=LEVELS.find(l=>l.id===lid);if(!l||!isLevelUnlocked(l.id,wid)){if(state.soundEnabled)sfx.incorrect();return;}if(state.soundEnabled)sfx.whoosh();state.currentLevel=l;state.currentWorldId=wid;showScreen('game');renderGameIntro();}
 // INTRO
 function renderGameIntro(){const l=state.currentLevel;document.getElementById('game-level-info').innerHTML='<span style="font-size:1rem">'+(WORLDS.find(w=>w.id===state.currentWorldId)?.emoji||'')+'</span><span>'+l.title+'</span>';document.getElementById('game-total-stars').textContent=totalStars();
-  const mh={countObjects:'Count the dots and tap the right number!',listenMatch:'Listen to the number and tap the matching dots!',memoryMatch:'Flip cards to match numbers and dots!',nameNumber:'Look at the number and tap its word!',sentenceBuilder:'Build the sentence by tapping the right number!',readNumber:'Read the number word and tap the right digit!',challenge:'🏆 CHALLENGE! Count, read, and match numbers!',numberRocket:'🚀 ROCKET! Answer correctly to fuel and launch your rocket!'};
+  const mh={countObjects:'Count the dots and tap the right number!',listenMatch:'Listen to the number and tap the matching dots!',memoryMatch:'Flip cards to match numbers and dots!',nameNumber:'Look at the number and tap its word!',sentenceBuilder:'Build the sentence by tapping the right number!',readNumber:'Read the number word and tap the right digit!',challenge:'🏆 CHALLENGE! Count, read, and match numbers!',numberRocket:'🚀 ROCKET! Answer correctly to fuel and launch your rocket!',sharkBattle:'🦈 SHARK BATTLE! Answer correctly to pop balloons and defeat the shark!'};
   const c=document.getElementById('game-container');
   c.innerHTML='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;"><div class="intro-card"><div style="text-align:center;margin-bottom:1rem;"><div class="intro-age">'+l.ageGroup+' years</div><h2 class="intro-title">'+l.title+'</h2></div><div class="intro-question" style="background:#DBEAFE;border-color:#3B82F6;">🔢 '+mh[l.mode]+'</div><div class="intro-buttons">'+(state.narrationEnabled?'<button class="btn btn-blue btn-md" onclick="speakQuestion()">🔊 Hear it</button>':'')+'<button class="btn btn-green btn-lg" onclick="startGameplay()">Let\'s Go! 🚀</button></div></div></div>';}
 function speakQuestion(){if(state.soundEnabled)sfx.click();speak("Let's count numbers!");}
-function startGameplay(){if(state.soundEnabled)sfx.click();const l=state.currentLevel;const m=l.mode;if(m==='countObjects')startCountObjects();else if(m==='listenMatch')startListenMatch();else if(m==='memoryMatch')startMemoryMatch();else if(m==='nameNumber')startNameNumber();else if(m==='sentenceBuilder')startSentenceBuilder();else if(m==='readNumber')startReadNumber();else if(m==='challenge')startChallenge();else if(m==='numberRocket')startNumberRocket();}
+function startGameplay(){if(state.soundEnabled)sfx.click();const l=state.currentLevel;const m=l.mode;if(m==='countObjects')startCountObjects();else if(m==='listenMatch')startListenMatch();else if(m==='memoryMatch')startMemoryMatch();else if(m==='nameNumber')startNameNumber();else if(m==='sentenceBuilder')startSentenceBuilder();else if(m==='readNumber')startReadNumber();else if(m==='challenge')startChallenge();else if(m==='numberRocket')startNumberRocket();else if(m==='sharkBattle')startSharkBattle();}
 function randNum(max){return 1+Math.floor(Math.random()*max);}
 function getChoices(target,max,count){const s=new Set([target]);while(s.size<count&&s.size<max){s.add(randNum(max));}return Array.from(s).sort((a,b)=>a-b);}
 function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
@@ -383,7 +386,59 @@ function rkSelect(i){const s=rkState;if(s.phase!=='asking')return;s.selected=i;c
     else{setTimeout(()=>{hideFeedback();s.currIdx++;renderNumberRocket();},1500);}}
   else{if(state.soundEnabled)sfx.incorrect();s.phase='wrong';s.mistakes++;renderNumberRocket();showFeedback('Try again! 🤔','wrong');setTimeout(()=>{s.phase='asking';s.selected=null;renderNumberRocket();hideFeedback();},1500);}}
 
-// MODE 8: CHALLENGE - mixed questions, no hints
+// MODE 8: SHARK BATTLE (Boss World) - Inspired by Mido's POP game
+// Answer number questions correctly to pop the shark's balloons.
+// Wrong answers let the shark attack! Pop all 12 balloons to win!
+let sb_battleState=null;
+function sharkSVG(balloonsLeft, phase, sharkHit) {
+  var balloons = '';
+  var cols = ['#EF4444','#F97316','#FBBF24','#84CC16','#22C55E','#06B6D4','#3B82F6','#8B5CF6','#EC4899','#A855F7','#14B8A6','#F59E0B'];
+  for (var i = 0; i < 12; i++) {
+    var bx = 15 + (i % 6) * 14;
+    var by = 5 + Math.floor(i / 6) * 15;
+    var popped = i >= balloonsLeft;
+    if (!popped) {
+      balloons += '<line x1="'+(bx+5)+'" y1="'+(by+8)+'" x2="'+(bx+5)+'" y2="'+(by+15)+'" stroke="#1F2937" stroke-width="0.5"/>';
+      balloons += '<ellipse cx="'+(bx+5)+'" cy="'+by+'" rx="6" ry="7" fill="'+cols[i]+'" stroke="#1F2937" stroke-width="1"/>';
+      balloons += '<ellipse cx="'+(bx+3)+'" cy="'+(by-2)+'" rx="2" ry="2.5" fill="white" opacity="0.5"/>';
+    } else {
+      // Popped balloon - show fragments
+      balloons += '<path d="M '+(bx+2)+' '+(by-2)+' L '+(bx+4)+' '+(by)+' L '+(bx+6)+' '+(by-3)+' L '+(bx+8)+' '+(by+1)+' L '+(bx+5)+' '+(by+3)+' L '+(bx+2)+' '+(by+2)+' Z" fill="none" stroke="'+cols[i]+'" stroke-width="0.5" opacity="0.3"/>';
+    }
+  }
+  // Shark body
+  var sharkColor = sharkHit ? '#FBBF24' : '#6B7280';
+  var sharkX = phase === 'attacking' ? 45 : 35;
+  var mouthOpen = phase === 'attacking';
+  var mouth = mouthOpen ? '<path d="M 65 70 Q 75 75 65 80 L 60 75 Z" fill="#1F2937"/><path d="M 62 72 L 64 74 M 66 72 L 68 74 M 62 77 L 64 75 M 66 77 L 68 75" stroke="white" stroke-width="0.8"/>' : '<path d="M 60 73 Q 70 75 60 77" stroke="#1F2937" stroke-width="1.5" fill="none"/>';
+  return '<svg viewBox="0 0 100 100" width="100%" height="100%">'+balloons+'<g transform="translate('+sharkX+',55)"><ellipse cx="20" cy="15" rx="25" ry="12" fill="'+sharkColor+'" stroke="#374151" stroke-width="2"/><path d="M -5 15 L -15 5 L -5 10 Z" fill="'+sharkColor+'" stroke="#374151" stroke-width="2"/><path d="M 45 15 L 55 5 L 45 10 Z" fill="'+sharkColor+'" stroke="#374151" stroke-width="2"/><path d="M 20 27 L 15 40 L 25 35 Z" fill="'+sharkColor+'" stroke="#374151" stroke-width="2"/><circle cx="30" cy="12" r="3" fill="white"/><circle cx="31" cy="12" r="2" fill="#1F2937"/><circle cx="31" cy="11" r="0.5" fill="white"/>'+mouth+'<path d="M 5 8 Q 8 5 12 8 M 15 6 Q 18 3 22 6" stroke="#374151" stroke-width="0.8" fill="none"/></g><text x="50" y="95" text-anchor="middle" font-size="8" font-weight="bold" fill="#1F2937">'+balloonsLeft+' balloons left!</text></svg>';
+}
+function startSharkBattle(){const l=state.currentLevel;sb_battleState={maxNum:l.maxNum,balloonsLeft:12,maxBalloons:12,phase:'asking',selected:null,mistakes:0,roundsDone:0,maxRounds:12,sharkHit:false,sharkPhase:'idle',questionType:0};renderSharkBattle();if(state.narrationEnabled)setTimeout(()=>speak('SHARK BATTLE! Answer correctly to pop the balloons! Defeat the shark!'),500);}
+function renderSharkBattle(){const s=sb_battleState;const c=document.getElementById('game-container');
+  if(s.balloonsLeft<=0){if(state.soundEnabled)sfx.fanfare();showConfetti(150);showFeedback('SHARK DEFEATED! 🎉','correct');if(state.narrationEnabled)setTimeout(()=>speak('You defeated the Number Shark! Amazing!'),500);const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);setTimeout(()=>completeLevel(stars,score),4000);return;}
+  if(s.roundsDone>=s.maxRounds&&s.balloonsLeft>0){if(state.soundEnabled)sfx.fanfare();showConfetti(80);showFeedback('GREAT EFFORT! 🎉','correct');if(state.narrationEnabled)setTimeout(()=>speak('Great effort! You popped '+s.maxBalloons-s.balloonsLeft+' balloons!'),500);const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);setTimeout(()=>completeLevel(stars,score),3500);return;}
+  // Generate question
+  const target=randNum(s.maxNum);const choices=getChoices(target,s.maxNum,4);s.target=target;s.choices=choices;s.selected=null;s.phase='asking';const col=NUM_COLORS[target-1];
+  // Rotate question types for variety
+  var qType=s.roundsDone%3;var questionHtml='';
+  if(qType===0){questionHtml='<div class="num-display-svg" style="width:100px;height:100px;">'+numSVG(target,col)+'</div><p style="font-size:1rem;margin-top:0.25rem;">How many dots?</p>';}
+  else if(qType===1){questionHtml='<div style="font-size:2rem;font-weight:900;color:'+col+';padding:0.5rem;">'+NUM_WORDS[target-1]+'</div><p style="font-size:0.875rem;">Which number?</p>';}
+  else{questionHtml='<div style="font-size:2.5rem;font-weight:900;color:'+col+';padding:0.5rem;">'+target+'</div><p style="font-size:0.875rem;">What number?</p>';}
+  var sharkPhase=s.sharkPhase;
+  c.innerHTML='<div style="flex:1;display:flex;flex-direction:column;"><div class="question-banner" style="border-color:#DC2626;background:#FEE2E2;"><p style="color:#991B1B;">🦈 SHARK BATTLE! Pop all '+s.balloonsLeft+' balloons!</p></div><div class="progress-row"><span style="font-size:0.875rem;font-weight:bold;color:#991B1B;">Balloons:</span><div class="progress-bar"><div class="progress-fill" style="width:'+(s.balloonsLeft/s.maxBalloons*100)+'%;background:linear-gradient(to right,#EF4444,#FBBF24);"></div></div><span style="font-weight:bold;font-size:1.125rem;color:#EF4444;">'+s.balloonsLeft+'/'+s.maxBalloons+'</span></div><div style="display:flex;justify-content:center;gap:1rem;align-items:center;margin:0.5rem 0;"><div style="width:160px;height:140px;">'+sharkSVG(s.balloonsLeft,sharkPhase,s.sharkHit)+'</div><div style="text-align:center;">'+questionHtml+'</div></div><div style="text-align:center;font-weight:bold;color:#374151;font-size:1rem;margin:0.5rem 0;">Tap the correct number!</div><div class="choice-grid" style="max-width:32rem;margin:0 auto;">'+choices.map((n,i)=>{const cc=NUM_COLORS[n-1];let cls='choice-btn hover-speak';let st='border-color:'+cc+';color:'+cc+';';if(s.selected===i)st+='background:'+cc+'22;';if(s.phase==='correct'&&n===target)cls+=' correct';if(s.phase==='wrong'&&s.selected===i&&n!==target)cls+=' wrong';return '<button class="'+cls+'" style="'+st+'" data-speak="'+NUM_WORDS[n-1]+'" onclick="sbBattleSelect('+i+')" '+(s.phase!=='asking'?'disabled':'')+'><span style="font-size:2rem;">'+n+'</span></button>';}).join('')+'</div></div>';}
+function sbBattleSelect(i){const s=sb_battleState;if(s.phase!=='asking')return;s.selected=i;s.roundsDone++;
+  if(s.choices[i]===s.target){if(state.soundEnabled){sfx.correct();sfx.pop();}
+    s.phase='correct';s.balloonsLeft--;s.sharkHit=true;s.sharkPhase='hit';
+    if(state.narrationEnabled)speak(NUM_WORDS[s.target-1]+'! POP!');
+    renderSharkBattle();
+    setTimeout(()=>{s.sharkHit=false;s.sharkPhase='idle';renderSharkBattle();},800);}
+  else{if(state.soundEnabled)sfx.incorrect();s.phase='wrong';s.mistakes++;s.sharkPhase='attacking';
+    if(state.narrationEnabled)speak('Wrong! The shark attacks!');
+    renderSharkBattle();
+    showFeedback('🦈 SHARK ATTACK! 🤔','wrong');
+    setTimeout(()=>{s.phase='asking';s.selected=null;s.sharkPhase='idle';renderSharkBattle();hideFeedback();},2000);}}
+
+// MODE 9: CHALLENGE - mixed questions, no hints
 let chState=null;
 function startChallenge(){const l=state.currentLevel;const rounds=[];const seen=new Set();while(rounds.length<6&&seen.size<l.maxNum){const n=randNum(l.maxNum);if(!seen.has(n)){seen.add(n);rounds.push(n);}}chState={rounds,currIdx:0,mistakes:0,phase:'asking',selected:null};renderChallenge();if(state.narrationEnabled)setTimeout(()=>speak('Challenge! Read each number!'),300);}
 function renderChallenge(){const s=chState;const c=document.getElementById('game-container');if(s.currIdx>=s.rounds.length){if(state.soundEnabled)sfx.fanfare();showConfetti(100);showFeedback('CHALLENGE COMPLETE! 🏆','correct');const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);setTimeout(()=>completeLevel(stars,score),2500);return;}
