@@ -241,12 +241,6 @@ body {
 .slot-machine-label { text-align: center; font-weight: 900; color: #1F2937; font-size: 1.25rem; margin-top: 0.5rem; text-shadow: 0 1px 2px rgba(255,255,255,0.5); }
 
 .hidden { display: none !important; }
-
-/* HOVER + KARAOKE TEXT BOXES */
-.hover-speak { cursor: pointer; transition: all 0.2s; }
-.hover-speak:hover { transform: scale(1.03); box-shadow: 0 0 12px 4px rgba(251,191,36,0.5); }
-.hover-speak.speaking { animation: karaoke-pulse 0.3s ease-in-out infinite alternate; }
-@keyframes karaoke-pulse { 0% { box-shadow: 0 0 15px 4px rgba(255,255,255,0.6), 0 6px 12px rgba(0,0,0,0.3); } 100% { box-shadow: 0 0 25px 8px rgba(255,255,255,1), 0 8px 16px rgba(0,0,0,0.4); } }
 </style>
 </head>
 <body>
@@ -572,11 +566,6 @@ function showScreen(id) {
   window.scrollTo(0, 0);
 }
 
-// HOVER + KARAOKE SPEECH SYSTEM
-function hoverSpeak(el){if(!state.narrationEnabled||!window.speechSynthesis)return;var word=el.dataset.speak;if(!word){var t=el.textContent;word=t.replace(/[^\x20-\x7E]/g,"").trim();}if(!word)return;document.querySelectorAll('.hover-speak.speaking,.keyword-pill.speaking,.veg-pill.speaking,.prep-pill.speaking').forEach(p=>p.classList.remove('speaking'));el.classList.add('speaking');if(window._ft)clearTimeout(window._ft);window._ft=setTimeout(()=>el.classList.remove('speaking'),1500);window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(word);u.rate=0.7;u.pitch=1.3;u.volume=1;const vs=window.speechSynthesis.getVoices();const pref=['Google US English','Samantha','Karen','Microsoft Zira'];for(const n of pref){const v=vs.find(v=>v.name.includes(n));if(v){u.voice=v;break;}}window.speechSynthesis.speak(u);}
-function attachHoverSpeak(){document.querySelectorAll('.hover-speak').forEach(el=>{if(el._hoverAttached)return;el._hoverAttached=true;el.addEventListener('mouseenter',()=>hoverSpeak(el));el.addEventListener('click',e=>{if(e.target===el||el.contains(e.target)){hoverSpeak(el);}});});}
-
-
 function goToStart() { if (state.soundEnabled) sfx.click(); stopSpeaking(); showScreen('start'); renderStart(); }
 function goToMap() { if (state.soundEnabled) sfx.click(); stopSpeaking(); showScreen('map'); renderMap(); }
 function toggleSound() { if (state.soundEnabled) sfx.click(); state.soundEnabled = !state.soundEnabled; saveState(); renderStart(); }
@@ -742,7 +731,7 @@ function renderGameIntro() {
           <div class="intro-age">${level.ageGroup} years</div>
           <h2 class="intro-title">${level.title}</h2>
         </div>
-        <div class="intro-question hover-speak" style="background:#FEF3C7;border-color:#FBBF24;">
+        <div class="intro-question" style="background:#FEF3C7;border-color:#FBBF24;">
           ${questionHtml}
         </div>
         <p class="intro-hint">💡 ${modeHints[level.mode]}</p>
@@ -808,12 +797,12 @@ function renderTapSay() {
       ? `Yes, I like ${v.plural}. ${v.emoji}`
       : `No, I don't like ${v.plural}. ${v.emoji}`;
     resultHtml = `<div class="choices-panel" style="border-color:${s.answer === 'yes' ? '#22C55E' : '#EF4444'};">
-      <p class="choices-title hover-speak" style="font-size:1.5rem;">${sentence}</p>
+      <p class="choices-title" style="font-size:1.5rem;">${sentence}</p>
     </div>`;
   }
   container.innerHTML = `
     <div style="flex:1;display:flex;flex-direction:column;">
-      <div class="question-banner hover-speak" style="border-color:${v.color};">
+      <div class="question-banner" style="border-color:${v.color};">
         <p>Do you like <span style="color:${v.color}">${v.plural}</span>? ${v.emoji}</p>
       </div>
       <div style="text-align:center;margin:1rem 0;">
@@ -922,7 +911,7 @@ function renderBingo() {
   const vegColor = s.calledVeg ? VEG_DATA[s.calledVeg].color : '#000';
   container.innerHTML = `
     <div style="flex:1;display:flex;flex-direction:column;">
-      <div class="question-banner hover-speak" style="border-color:#FBBF24;">
+      <div class="question-banner" style="border-color:#FBBF24;">
         <p>👂 <span style="color:#FBBF24">Find:</span> ${s.calledVeg ? `<span style="color:${vegColor}">${vegWord}</span> ${vegEmoji}` : '...'}</p>
         ${totalCalled > 1 ? `<p style="font-size:0.875rem;color:#6B7280;margin-top:0.25rem;">Tap ALL the ${VEG_DATA[s.calledVeg].plural}! (${foundCalled}/${totalCalled} found)</p>` : ''}
       </div>
@@ -1052,13 +1041,13 @@ function renderAnimalMatch() {
 
   container.innerHTML = `
     <div style="flex:1;display:flex;flex-direction:column;">
-      <div class="question-banner hover-speak" style="border-color:${animal.color};">
+      <div class="question-banner" style="border-color:${animal.color};">
         <p>${s.phase === 'spinning' ? '🎰 Spinning...' : `What does the <span style="color:#1F2937;font-weight:900;">${animal.name}</span> like? ❤️`}</p>
       </div>
       ${animalDisplayHtml}
       ${s.phase === 'asking' || s.phase === 'correct' || s.phase === 'wrong' ? `
       <div class="choices-panel" style="border-color:#fff;">
-        <p class="choices-title hover-speak">Tap the right vegetable!</p>
+        <p class="choices-title">Tap the right vegetable!</p>
         <div class="choice-grid">
           ${s.choices.map(v => {
             const vd = VEG_DATA[v];
@@ -1149,7 +1138,7 @@ function renderPlateBuilder() {
   const container = document.getElementById('game-container');
   container.innerHTML = `
     <div style="flex:1;display:flex;flex-direction:column;">
-      <div class="question-banner hover-speak" style="border-color:${v.color};">
+      <div class="question-banner" style="border-color:${v.color};">
         <p>Put ${s.count} <span style="color:${v.color}">${v.plural}</span> ${v.emoji} on your plate! 🍽️</p>
       </div>
       <div class="progress-row">
@@ -1251,11 +1240,11 @@ function renderSentenceBuilder() {
   const container = document.getElementById('game-container');
   container.innerHTML = `
     <div style="flex:1;display:flex;flex-direction:column;">
-      <div class="question-banner hover-speak" style="border-color:${v.color};">
+      <div class="question-banner" style="border-color:${v.color};">
         <p>Build: "I like <span style="color:${v.color}">___</span>"</p>
       </div>
       <div class="choices-panel" style="border-color:#fff;">
-        <p class="choices-title hover-speak">Build the sentence!</p>
+        <p class="choices-title">Build the sentence!</p>
         <div class="sentence-display">
           <span style="color:#1F2937;">I like</span>
           <span class="sentence-slot ${s.selected === null ? 'empty' : ''}" style="${s.selected !== null ? `background:${v.bgColor};border-color:${v.color};color:${v.color};` : ''}">${s.selected !== null ? VEG_DATA[s.selected].plural : '?'}</span>
@@ -1355,7 +1344,7 @@ function renderChallenge() {
     while (nums.size < 4 && extra < 10) { if (!nums.has(s.targetCount + extra)) nums.add(s.targetCount + extra); extra++; }
     const numChoices = Array.from(nums).sort((a,b) => a-b);
     bottomPanel = `<div class="choices-panel" style="border-color:#EF4444;">
-      <p class="choices-title hover-speak">How many ${v.plural} did you find?</p>
+      <p class="choices-title">How many ${v.plural} did you find?</p>
       <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
         ${numChoices.map(n => `<button class="btn ${n === s.targetCount && s.phase === 'correct' ? 'btn-green' : 'btn-yellow'} btn-lg" onclick="challengeCount(${n})" style="width:4rem;height:4rem;font-size:1.5rem;">${n}</button>`).join('')}
       </div>
@@ -1363,12 +1352,12 @@ function renderChallenge() {
   }
   if (s.phase === 'correct') {
     bottomPanel = `<div class="choices-panel" style="border-color:#22C55E;">
-      <p class="choices-title hover-speak" style="font-size:1.5rem;color:#22C55E;">Perfect! I like ${v.plural}! ${v.emoji}</p>
+      <p class="choices-title" style="font-size:1.5rem;color:#22C55E;">Perfect! I like ${v.plural}! ${v.emoji}</p>
     </div>`;
   }
   container.innerHTML = `
     <div style="flex:1;display:flex;flex-direction:column;">
-      <div class="question-banner hover-speak" style="border-color:#EF4444;">
+      <div class="question-banner" style="border-color:#EF4444;">
         <p style="font-size:1rem;">🏆 CHALLENGE! Find all the <span style="color:${v.color}">${v.plural}</span> ${v.emoji}!</p>
         <p style="font-size:0.75rem;color:#DC2626;margin-top:0.25rem;font-weight:bold;">⚠️ No hints! Tap only the ${v.plural}!</p>
       </div>
@@ -1596,9 +1585,6 @@ document.addEventListener('touchmove', function(e) {
   if (e.target.closest('.map-container') || e.target.closest('.choices-panel') || e.target.closest('.tray')) return;
   e.preventDefault();
 }, { passive: false });
-
-// Auto-attach hover speak to new elements via MutationObserver
-if(!window._hoverObserver){window._hoverObserver=new MutationObserver(()=>{document.querySelectorAll('.hover-speak:not([data-hover-bound])').forEach(el=>{el.setAttribute('data-hover-bound','1');el.addEventListener('mouseenter',()=>hoverSpeak(el));el.addEventListener('click',e=>{if(e.target===el||el.contains(e.target))hoverSpeak(el);});});});window._hoverObserver.observe(document.body,{childList:true,subtree:true});}
 </script>
 </body>
 </html>

@@ -480,6 +480,105 @@ function attachHoverSpeak() {
 - **Lizard:** Elongated body, pointed head, long tail, splayed legs — clearly reptile (NOT turtle)
 - Always test: can a child tell them apart at a glance?
 
+### Rule 32: Base64 encoding in mega-file MUST use UTF-8 decoding
+**Bug:** The ESL Game Hub embedded games as base64, but `atob()` corrupts multi-byte UTF-8 characters (emojis show as garbled text like `ӠԨԪ`).
+
+**Fix:** Use `TextDecoder` for proper UTF-8 decoding:
+```javascript
+// ❌ WRONG — corrupts emoji
+var html = atob(b64);
+
+// ✅ CORRECT — proper UTF-8
+var binary = atob(b64);
+var bytes = new Uint8Array(binary.length);
+for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
+var html = new TextDecoder('utf-8').decode(bytes);
+```
+
+### Rule 33: Hover-speak MUST strip emoji from text
+**Bug:** `hoverSpeak()` used `el.textContent.trim()` which includes emoji characters (🐦, ⬆️, 🏠). The voice reader spoke the emoji description or garbled text.
+
+**Fix:** If no `data-speak` attribute, strip non-ASCII characters before speaking:
+```javascript
+var word = el.dataset.speak;
+if (!word) {
+  var t = el.textContent;
+  word = t.replace(/[^\x20-\x7E]/g, "").trim();
+}
+```
+This keeps only ASCII printable characters (letters, numbers, spaces, basic punctuation).
+
+### Rule 34: Always provide PowerShell instructions for GitHub push
+**Pattern:** After every significant update, provide PowerShell commands for the user to push to GitHub.
+
+**Standard commands:**
+```powershell
+cd "D:\ESL GAME ADVENTURE"
+git add *.html *.md
+git commit -m "vX.X: Description of changes"
+git push
+```
+
+**Key rules:**
+- Always use `cd "D:\ESL GAME ADVENTURE"` (the user's project folder)
+- Use `git add *.html *.md` (not `git add .` to avoid adding system files)
+- Provide the exact commit message
+- If new files were added, remind the user to download them first
+
+### Rule 35: Always sandbox-test each update before delivery
+**Pattern:** After making ANY change to a game file, ALWAYS:
+1. Copy the updated file to `/home/z/my-project/public/`
+2. Open it in Agent Browser with a cache-busting `?v=N` parameter
+3. Verify the page loads without errors
+4. Test at least one game mode end-to-end
+5. Run the 95% Data Guard checklist
+6. Only then provide the download link to the user
+
+**Never** provide a download link without testing first.
+
+### Rule 36: GitHub push MUST include a lock check to prevent accidental erasure
+**Pattern:** Before every `git push`, verify the working directory is the correct project folder and that no accidental files are staged.
+
+**PowerShell commands with lock check:**
+```powershell
+# LOCK CHECK - Run these BEFORE pushing
+cd "D:\ESL GAME ADVENTURE"
+
+# 1. Verify we're in the right folder
+$loc = Get-Location
+if ($loc.Path -ne "D:\ESL GAME ADVENTURE") {
+    Write-Host "ERROR: Wrong directory! Aborting." -ForegroundColor Red
+    return
+}
+
+# 2. Check what's staged (should only be .html and .md files)
+git status
+
+# 3. Verify file count (should be 6-7 files)
+$fileCount = (Get-ChildItem *.html, *.md -ErrorAction SilentlyContinue).Count
+Write-Host "Files in folder: $fileCount (expected 6-7)"
+if ($fileCount -lt 5 -or $fileCount -gt 10) {
+    Write-Host "WARNING: Unexpected file count! Check before pushing." -ForegroundColor Yellow
+    return
+}
+
+# 4. Only add HTML and MD files (never system files)
+git add *.html *.md
+
+# 5. Commit with descriptive message
+git commit -m "vX.X: Description of changes"
+
+# 6. Push
+git push
+```
+
+**Key safety measures:**
+- Folder path verification (`Get-Location` check)
+- File count check (expected 6-7 files)
+- Only `*.html *.md` are staged (never `git add .`)
+- `git status` review before commit
+- Abort if anything looks wrong
+
 ---
 
 ## 6. Touch Device Compatibility
