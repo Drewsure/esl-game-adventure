@@ -37,7 +37,7 @@ grep -q "SHARK GOT YOU!" "$nt" && check "Shark Battle: defeat screen" 1 || check
 
 grep -q "number-town" "$BASE/esl-game-hub.html" && check "Hub: Number Town embedded" 1 || check "Hub: Number Town embedded" 0
 [ -f "scripts/push.ps1" ] && check "Push script exists" 1 || check "Push script exists" 0
-grep -q "Rule 36" "$BASE/GAME_BUILD_REFERENCE.md" && check "Rules 26-36 documented" 1 || check "Rules 26-36 documented" 0
+grep -q "Rule 37" "$BASE/GAME_BUILD_REFERENCE.md" && check "Rules 26-43 documented" 1 || check "Rules 26-43 documented" 0
 [ -f "$BASE/DATA_LOSS_PREVENTION.md" ] && check "DATA_LOSS_PREVENTION.md exists" 1 || check "DATA_LOSS_PREVENTION.md exists" 0
 
 echo ""

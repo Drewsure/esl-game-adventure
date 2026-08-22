@@ -1298,3 +1298,152 @@ Stage Summary:
 ---
 
 *This document is living. Update it after every build with new lessons learned. Future builds depend on it.*
+
+
+### Rule 37: ALWAYS cd to the repo before running git commands
+**Bug:** Running `git stash`, `git pull`, or `.\scripts\push.ps1` from `C:\Users\User` (the default PowerShell start location) fails with `fatal: not a git repository` or `.\scripts\push.ps1 : The term '.\scripts\push.ps1' is not recognized`.
+
+**Fix:** Every command block MUST start with `cd "D:\ESL GAME ADVENTURE"`:
+```powershell
+# WRONG — runs from C:\Users\User, fails
+git stash
+git pull --rebase origin main
+
+# RIGHT — always cd first
+cd "D:\ESL GAME ADVENTURE"
+git stash
+git pull --rebase origin main
+```
+**For the AI agent:** Always write commands assuming the user's PowerShell prompt starts at `PS C:\Users\User>`. Never assume they're already in the repo. Every command block begins with `cd "D:\ESL GAME ADVENTURE"`.
+
+### Rule 38: Commit BEFORE pulling (push script order matters)
+**Bug:** The original push script did `git pull --rebase` BEFORE `git commit`. This fails with `error: cannot pull with rebase: You have unstaged changes` when the working tree is dirty.
+
+**Fix:** Commit FIRST, then pull --rebase. After committing, the working tree is clean, so `git pull --rebase` can run safely:
+```powershell
+# WRONG ORDER (fails if working tree is dirty):
+git pull --rebase origin main   # error: unstaged changes
+git add .
+git commit -m "msg"
+git push
+
+# RIGHT ORDER (always works):
+git add .
+git commit -m "msg"             # working tree now clean
+git pull --rebase origin main   # safe to rebase
+git push
+```
+
+### Rule 39: Rebase conflict resolution patterns
+**Pattern:** When `git pull --rebase` fails, there are two common conflict types:
+
+**Type 1: Modify/delete conflict (file moved)**
+```
+CONFLICT (modify/delete): Old/file.html deleted in 696ef54 and modified in HEAD.
+```
+Cause: You deleted the file (e.g., moved from `Old/` to root), but remote modified it.
+Fix: Accept the deletion:
+```powershell
+git rm Old/file.html
+```
+
+**Type 2: Content conflict (both sides changed the same file)**
+```
+CONFLICT (content): Merge conflict in esl-game-hub.html
+```
+Cause: Both you and remote modified the same file.
+Fix: Pick which version wins. In rebase context:
+- `--theirs` = YOUR commit (the one being replayed)
+- `--ours` = the remote commit (the new base)
+```powershell
+# Take YOUR version (usually what you want — it has your latest work):
+git checkout --theirs esl-game-hub.html
+git add esl-game-hub.html
+
+# OR take the REMOTE version:
+git checkout --ours esl-game-hub.html
+git add esl-game-hub.html
+
+# Then continue:
+git rebase --continue
+```
+
+**If you get totally lost:**
+```powershell
+git rebase --abort   # returns to state before rebase
+```
+
+### Rule 40: Verification-gated push (ministar-lab pattern)
+**Pattern:** Run a verification script BEFORE pushing. If verification fails, block the push and roll back the commit. This prevents broken builds from reaching production.
+
+**Implementation:**
+```powershell
+# In push.ps1, AFTER commit but BEFORE push:
+$result = & $bashExe -c "cd '/d/ESL GAME ADVENTURE' && bash scripts/verify-aaaa-features.sh 2>&1"
+if ($result -match "ALL CHECKS PASSED") {
+    git push origin main
+} else {
+    git reset --soft HEAD~1   # undo the commit, keep working tree changes
+    Write-Host "Verification FAILED - deployment blocked."
+}
+```
+
+**The verify script** (`scripts/verify-aaaa-features.sh`) checks:
+- All 6 HTML files exist (5 games + hub)
+- All 2 MD files exist (GAME_BUILD_REFERENCE, DATA_LOSS_PREVENTION)
+- Number Town has zero external dependencies
+- Shark Battle has: lives system, 720px canvas, triggerSharkAttack, game over screen, streak milestones, defeat screen
+- Hub has Number Town embedded
+- Documentation has Rules 26-43
+
+**Bypass:** `.\scripts\push.ps1 -SkipVerify` (DANGER — only for emergencies)
+
+### Rule 41: Soft reset on verification failure (preserve working tree)
+**Pattern:** When verification fails and blocks the push, use `git reset --soft HEAD~1` to undo the commit WITHOUT losing the working tree changes. This lets the user fix the issue and re-run the push without re-typing the commit message or re-staging files.
+
+```powershell
+# In push.ps1, when verification fails:
+git reset --soft HEAD~1
+# The commit is undone, but all staged changes are still staged.
+# User fixes the issue, then runs .\scripts\push.ps1 again.
+```
+
+**Why `--soft` and not `--hard`:**
+- `--soft`: undoes the commit, keeps changes staged (SAFE)
+- `--mixed`: undoes the commit, unstages changes but keeps them in working tree (SAFE)
+- `--hard`: undoes the commit AND deletes all changes (DANGEROUS — loses work)
+
+### Rule 42: Lock file stale auto-clear
+**Pattern:** If push.ps1 crashes mid-run (e.g., PowerShell closed, computer crashed), the lock file `.git\push.lock` is left behind. The next push attempt would fail with "Another push is running."
+
+**Fix:** Auto-clear stale locks older than 10 minutes:
+```powershell
+$lock = ".git\push.lock"
+if (Test-Path $lock) {
+    $age = (Get-Date) - (Get-Item $lock).LastWriteTime
+    if ($age.TotalMinutes -gt 10) {
+        Remove-Item -Force $lock   # stale, auto-clear
+    } else {
+        Write-Host "ERROR: Another push is running." -ForegroundColor Red
+        return
+    }
+}
+```
+
+**Manual override** (only if you're certain no push is running):
+```powershell
+Remove-Item -Force .git\push.lock
+```
+
+### Rule 43: Files at root vs download/ (auto-detect in verify script)
+**Bug:** The verify script looked for `download/number-town.html` but the user's repo has files at the root (`number-town.html` directly in `D:\ESL GAME ADVENTURE\`).
+
+**Fix:** Auto-detect the base path in the verify script:
+```bash
+# Auto-detect: files at root OR in download/
+if [ -f "number-town.html" ]; then BASE=".";
+elif [ -f "download/number-town.html" ]; then BASE="download";
+else BASE="."; fi
+```
+This makes the verify script work regardless of whether the repo uses the `download/` subfolder or has files at the root.
+
