@@ -536,6 +536,49 @@ git push
 
 **Never** provide a download link without testing first.
 
+### Rule 36: GitHub push MUST include a lock check to prevent accidental erasure
+**Pattern:** Before every `git push`, verify the working directory is the correct project folder and that no accidental files are staged.
+
+**PowerShell commands with lock check:**
+```powershell
+# LOCK CHECK - Run these BEFORE pushing
+cd "D:\ESL GAME ADVENTURE"
+
+# 1. Verify we're in the right folder
+$loc = Get-Location
+if ($loc.Path -ne "D:\ESL GAME ADVENTURE") {
+    Write-Host "ERROR: Wrong directory! Aborting." -ForegroundColor Red
+    return
+}
+
+# 2. Check what's staged (should only be .html and .md files)
+git status
+
+# 3. Verify file count (should be 6-7 files)
+$fileCount = (Get-ChildItem *.html, *.md -ErrorAction SilentlyContinue).Count
+Write-Host "Files in folder: $fileCount (expected 6-7)"
+if ($fileCount -lt 5 -or $fileCount -gt 10) {
+    Write-Host "WARNING: Unexpected file count! Check before pushing." -ForegroundColor Yellow
+    return
+}
+
+# 4. Only add HTML and MD files (never system files)
+git add *.html *.md
+
+# 5. Commit with descriptive message
+git commit -m "vX.X: Description of changes"
+
+# 6. Push
+git push
+```
+
+**Key safety measures:**
+- Folder path verification (`Get-Location` check)
+- File count check (expected 6-7 files)
+- Only `*.html *.md` are staged (never `git add .`)
+- `git status` review before commit
+- Abort if anything looks wrong
+
 ---
 
 ## 6. Touch Device Compatibility
