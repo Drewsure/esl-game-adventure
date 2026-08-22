@@ -1447,3 +1447,55 @@ else BASE="."; fi
 ```
 This makes the verify script work regardless of whether the repo uses the `download/` subfolder or has files at the root.
 
+
+
+### Rule 44: EVERY push MUST include an MD update (commit learning to MD)
+**Pattern:** Every code change teaches a lesson. If the lesson isn't written to MD before the next push, it's lost -- and the next agent (or future-you) will repeat the same mistake.
+
+**Mandatory workflow for EVERY update:**
+
+1. **Make the code change** (fix bug, add feature, refactor)
+2. **Update the MD*** BEFORE pushing:
+   - If new bug pattern discovered -> add row to \"Common Bug -> Fix\" table (\uquick Reference)
+   - If new build rule discovered -> add new \"{#{##} Rule N:\" entry to \u53
+   - If new procedure discovered -> add to \u44 (Standalone HTML Build Procedure) or \u14 (Data Guard)
+   - If new tooling discovered -> add to \u3 (Tech Stack)
+3. **Commit MD + code together** in the same commit
+4. **Run `.\scripts\push.ps1`** -- verification will pass because MD is current
+
+**Forbidden patterns:**- \u2728 Pushing code without an MD update (\"I'll document it later\")- \u2728 Pushing MD without the code change (\"I'll fix the code later\")- \u2728 Committing code + MD in separate commits (split the lesson from the change)
+
+*Required pattern:**
+```powershellcd \"D:\ESL GAME ADVENTURE"
+# 1. Make the code change
+# (edit number-town.html, etc.)
+
+# 2. Update the MD
+# (edit GAME_BUILD_REFERENCE.md -- add Rule, add Bug->Fix row, etc.)
+
+# 3. Commit both togethergit add *.html *.md scripts/
+git commit -m \"vX.Y: <what changed> + <what was learned>\"
+
+# 4. Push (verification runs)
+.\scripts\push.ps1 \"vX.Y: <what changed> + <what was learned>\"
+```
+
+**Why this matters:**
+- The MD is the single source of truth for build rules
+- Every rule in this doc was paid for in bugs and user frustration
+- If the MD isn't updated with each push, the doc goes stale and future builds repeat old mistakes
+- The verify script (Rule 40) checks that \"Rules 26-43 are documented\" -- but it can't check that the LATEST lesson is documented. That's the human/agent's responsibility.
+
+*Self-check before every push:**
+Ask yourself: \"What did I learn in this change that wasn't in the MD before?\"
+- If the answer is \"nothing\" -> OK to push without MD update (rare)
+- If the answer is \"X\" -> add X to the MD BEFORE pushing
+
+*For the AI agent:** Before calling `push.ps1` (or recommending the user run it), ALWAYS:
+1. Review what changed in this session
+2. Identify any new lesson (bug pattern, build rule, procedure)
+3. Update GAME_BUILD_REFERENCE.md with the lesson
+4. THEN commit and push
+
+This is non-negotiable. The MD is the project's memory. Skip this step = lose the lesson.
+
