@@ -404,6 +404,7 @@ let sb_waterTime=0;
 function initSharkCanvas(){
   var container=document.getElementById('shark-canvas-container');
   if(!container)return;
+  // Create canvas if it doesn't exist
   sb_canvas=container.querySelector('canvas');
   if(!sb_canvas){
     sb_canvas=document.createElement('canvas');
@@ -414,23 +415,31 @@ function initSharkCanvas(){
     container.appendChild(sb_canvas);
   }
   sb_ctx=sb_canvas.getContext('2d');
-  // Init balloons
-  var cols=['#EF4444','#F97316','#FBBF24','#84CC16','#22C55E','#06B6D4','#3B82F6','#8B5CF6','#EC4899','#A855F7','#14B8A6','#F59E0B'];
-  sb_balloons=[];
-  for(var i=0;i<12;i++){
-    sb_balloons.push({
-      x:30+(i%6)*(sb_canvas.width-60)/5,
-      y:30+Math.floor(i/6)*35,
-      r:14,
-      color:cols[i],
-      popped:false,
-      bobPhase:i*0.5,
-      popAnim:0
-    });
+  // Only init balloons on FIRST call (when array is empty)
+  // On subsequent calls (after re-render), keep existing balloon states
+  if(sb_balloons.length===0){
+    var cols=['#EF4444','#F97316','#FBBF24','#84CC16','#22C55E','#06B6D4','#3B82F6','#8B5CF6','#EC4899','#A855F7','#14B8A6','#F59E0B'];
+    sb_balloons=[];
+    for(var i=0;i<12;i++){
+      sb_balloons.push({
+        x:30+(i%6)*(sb_canvas.width-60)/5,
+        y:30+Math.floor(i/6)*35,
+        r:14,
+        color:cols[i],
+        popped:false,
+        bobPhase:i*0.5,
+        popAnim:0
+      });
+    }
+    sb_sharkX=sb_canvas.width/2;
+    sb_sharkDir=1;
+    sb_particles=[];
+  } else {
+    // Update balloon X positions for new canvas width
+    for(var j=0;j<sb_balloons.length;j++){
+      sb_balloons[j].x=30+(j%6)*(sb_canvas.width-60)/5;
+    }
   }
-  sb_sharkX=sb_canvas.width/2;
-  sb_sharkDir=1;
-  sb_particles=[];
   if(sb_animId)cancelAnimationFrame(sb_animId);
   animateSharkScene();
 }
@@ -705,6 +714,7 @@ function startSharkBattle(){
   const l=state.currentLevel;
   sb_battleState={maxNum:l.maxNum,balloonsLeft:12,maxBalloons:12,phase:'asking',selected:null,mistakes:0,roundsDone:0,maxRounds:12,sharkHit:false,sharkPhase:'idle',questionType:0};
   sb_particles=[];
+  sb_balloons=[]; // Reset balloons so initSharkCanvas creates fresh ones
   renderSharkBattle();
   setTimeout(function(){initSharkCanvas();},100);
   if(state.narrationEnabled)setTimeout(()=>speak('SHARK BATTLE! Answer correctly to pop the balloons! Defeat the shark!'),500);
