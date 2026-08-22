@@ -220,10 +220,10 @@ const LEVELS=[
   {id:'ma-7',worldId:'master',index:6,title:'Master Detective',mode:'challenge',maxNum:12,ageGroup:'6-9'},
   {id:'ma-8',worldId:'master',index:7,title:'Grand Master',mode:'challenge',maxNum:12,ageGroup:'6-9'},
   // BOSS WORLD - Number Shark Battle (inspired by Mido's POP game)
-  {id:'bo-1',worldId:'boss',index:0,title:'🦈 Shark Battle 1-3',mode:'sharkBattle',maxNum:3,ageGroup:'3-9'},
-  {id:'bo-2',worldId:'boss',index:1,title:'🦈 Shark Battle 1-6',mode:'sharkBattle',maxNum:6,ageGroup:'3-9'},
-  {id:'bo-3',worldId:'boss',index:2,title:'🦈 Shark Battle 1-9',mode:'sharkBattle',maxNum:9,ageGroup:'3-9'},
-  {id:'bo-4',worldId:'boss',index:3,title:'🦈 FINAL BATTLE 1-12',mode:'sharkBattle',maxNum:12,ageGroup:'3-9'},
+  {id:'bo-1',worldId:'boss',index:0,title:'🦈 Shark Battle Round 1',mode:'sharkBattle',maxNum:12,ageGroup:'3-9'},
+  {id:'bo-2',worldId:'boss',index:1,title:'🦈 Shark Battle Round 2',mode:'sharkBattle',maxNum:12,ageGroup:'3-9'},
+  {id:'bo-3',worldId:'boss',index:2,title:'🦈 Shark Battle Round 3',mode:'sharkBattle',maxNum:12,ageGroup:'3-9'},
+  {id:'bo-4',worldId:'boss',index:3,title:'🦈 FINAL SHARK BATTLE!',mode:'sharkBattle',maxNum:12,ageGroup:'3-9'},
 ];
 // Build WORLD_LEVEL_ORDER from LEVELS
 const WORLD_LEVEL_ORDER={};LEVELS.forEach(l=>{if(!WORLD_LEVEL_ORDER[l.worldId])WORLD_LEVEL_ORDER[l.worldId]=[];WORLD_LEVEL_ORDER[l.worldId].push(l.id);});
@@ -388,30 +388,43 @@ function rkSelect(i){const s=rkState;if(s.phase!=='asking')return;s.selected=i;c
 
 // MODE 8: SHARK BATTLE (Boss World) - Canvas-based animated boss game
 // Inspired by Mido's POP game. Uses HTML5 Canvas for smooth animations.
+// Redesigned 2026-08-22 per early-childhood research:
+//  - Lives system (3 hearts) instead of ambiguous "shark attack"
+//  - "X in a row!" streak replaces confusing "combo" terminology
+//  - Bigger canvas (720x380) with larger shark and balloons for tablet visibility
+//  - No re-render during shark attack (prevents canvas glitch flicker)
+//  - Hover-speak disabled on choice buttons during battle (audio priority: narration > hover > SFX)
 let sb_battleState=null;
 let sb_canvas=null;
 let sb_ctx=null;
 let sb_animId=null;
 let sb_particles=[];
 let sb_balloons=[];
-let sb_sharkX=200;
+let sb_sharkX=360;
 let sb_sharkDir=1;
 let sb_sharkOffset=0;
 let sb_shakeX=0;
 let sb_shakeY=0;
 let sb_waterTime=0;
+let sb_sharkLunge=0;      // 0..1, rises on attack, falls back to 0
+let sb_sharkSink=0;       // 0..1, rises on victory (shark sinks)
+let sb_redFlash=0;        // 0..1, red border flash on wrong answer
 
 function initSharkCanvas(){
   var container=document.getElementById('shark-canvas-container');
   if(!container)return;
-  // Create canvas if it doesn't exist
+  // Create canvas if it doesn't exist - BIGGER for tablet visibility
   sb_canvas=container.querySelector('canvas');
   if(!sb_canvas){
     sb_canvas=document.createElement('canvas');
-    sb_canvas.width=container.offsetWidth||320;
-    sb_canvas.height=200;
+    // Internal resolution 720x380 (scaled by CSS to container width)
+    sb_canvas.width=720;
+    sb_canvas.height=380;
     sb_canvas.style.width='100%';
-    sb_canvas.style.height='200px';
+    sb_canvas.style.height='auto';
+    sb_canvas.style.maxHeight='420px';
+    sb_canvas.style.display='block';
+    sb_canvas.style.margin='0 auto';
     container.appendChild(sb_canvas);
   }
   sb_ctx=sb_canvas.getContext('2d');
@@ -420,11 +433,14 @@ function initSharkCanvas(){
   if(sb_balloons.length===0){
     var cols=['#EF4444','#F97316','#FBBF24','#84CC16','#22C55E','#06B6D4','#3B82F6','#8B5CF6','#EC4899','#A855F7','#14B8A6','#F59E0B'];
     sb_balloons=[];
+    // 4 rows x 3 cols = 12 balloons, bigger spacing for bigger canvas
     for(var i=0;i<12;i++){
+      var col=i%3;
+      var row=Math.floor(i/3);
       sb_balloons.push({
-        x:30+(i%6)*(sb_canvas.width-60)/5,
-        y:30+Math.floor(i/6)*35,
-        r:14,
+        x:80+col*280,
+        y:50+row*80,
+        r:26,
         color:cols[i],
         popped:false,
         bobPhase:i*0.5,
@@ -435,10 +451,7 @@ function initSharkCanvas(){
     sb_sharkDir=1;
     sb_particles=[];
   } else {
-    // Update balloon X positions for new canvas width
-    for(var j=0;j<sb_balloons.length;j++){
-      sb_balloons[j].x=30+(j%6)*(sb_canvas.width-60)/5;
-    }
+    // Keep balloon positions stable (do NOT reset X on re-render — that caused visual jump)
   }
   if(sb_animId)cancelAnimationFrame(sb_animId);
   animateSharkScene();
@@ -454,36 +467,42 @@ function animateSharkScene(){
   // Clear
   sb_ctx.clearRect(0,0,W,H);
 
-  // Apply screen shake
+  // Apply screen shake (decays each frame)
   sb_ctx.save();
   if(sb_shakeX>0||sb_shakeY>0){
     sb_ctx.translate(sb_shakeX,sb_shakeY);
-    sb_shakeX*=0.85;
-    sb_shakeY*=0.85;
+    sb_shakeX*=0.82;
+    sb_shakeY*=0.82;
     if(Math.abs(sb_shakeX)<0.5)sb_shakeX=0;
     if(Math.abs(sb_shakeY)<0.5)sb_shakeY=0;
   }
 
-  // Draw sky gradient
-  var skyGrad=sb_ctx.createLinearGradient(0,0,0,H*0.6);
+  // Draw sky gradient (top 45% of canvas)
+  var skyGrad=sb_ctx.createLinearGradient(0,0,0,H*0.45);
   skyGrad.addColorStop(0,'#DBEAFE');
   skyGrad.addColorStop(1,'#FEF3C7');
   sb_ctx.fillStyle=skyGrad;
-  sb_ctx.fillRect(0,0,W,H*0.6);
+  sb_ctx.fillRect(0,0,W,H*0.45);
 
-  // Draw sun
+  // Draw sun (top right)
   sb_ctx.fillStyle='#FBBF24';
+  sb_ctx.shadowColor='#FBBF24';
+  sb_ctx.shadowBlur=20;
   sb_ctx.beginPath();
-  sb_ctx.arc(W-30,20,12,0,Math.PI*2);
+  sb_ctx.arc(W-60,50,24,0,Math.PI*2);
   sb_ctx.fill();
+  sb_ctx.shadowBlur=0;
 
-  // Draw water with animated waves
-  var waterY=H*0.55;
-  sb_ctx.fillStyle='#0EA5E9';
+  // Draw water with animated waves (bottom 55%)
+  var waterY=H*0.45;
+  var waterGrad=sb_ctx.createLinearGradient(0,waterY,0,H);
+  waterGrad.addColorStop(0,'#0EA5E9');
+  waterGrad.addColorStop(1,'#0C4A6E');
+  sb_ctx.fillStyle=waterGrad;
   sb_ctx.beginPath();
   sb_ctx.moveTo(0,waterY);
   for(var x=0;x<=W;x+=5){
-    var waveY=waterY+Math.sin(x*0.03+sb_waterTime)*4;
+    var waveY=waterY+Math.sin(x*0.02+sb_waterTime)*6;
     sb_ctx.lineTo(x,waveY);
   }
   sb_ctx.lineTo(W,H);
@@ -491,30 +510,29 @@ function animateSharkScene(){
   sb_ctx.closePath();
   sb_ctx.fill();
 
-  // Water shimmer
-  sb_ctx.fillStyle='rgba(255,255,255,0.15)';
-  for(var x2=0;x2<W;x2+=20){
-    var shimmerY=waterY+Math.sin(x2*0.03+sb_waterTime)*4;
-    sb_ctx.fillRect(x2+Math.sin(sb_waterTime+x2)*3,shimmerY,8,2);
+  // Water shimmer lines
+  sb_ctx.fillStyle='rgba(255,255,255,0.18)';
+  for(var x2=0;x2<W;x2+=30){
+    var shimmerY=waterY+Math.sin(x2*0.02+sb_waterTime)*6;
+    sb_ctx.fillRect(x2+Math.sin(sb_waterTime+x2)*4,shimmerY+8,14,3);
   }
 
-  // Draw balloons
+  // Draw balloons (bigger now: r=26)
   for(var i=0;i<sb_balloons.length;i++){
     var b=sb_balloons[i];
     if(b.popped){
       if(b.popAnim<1){
-        b.popAnim+=0.05;
-        // Draw expanding fragments
-        var fragR=b.r*(1+b.popAnim*3);
+        b.popAnim+=0.08;
+        var fragR=b.r*(1+b.popAnim*2.5);
         sb_ctx.strokeStyle=b.color;
-        sb_ctx.lineWidth=2;
-        sb_ctx.globalAlpha=1-b.popAnim;
-        for(var f=0;f<6;f++){
-          var fa=f/6*Math.PI*2;
+        sb_ctx.lineWidth=3;
+        sb_ctx.globalAlpha=Math.max(0,1-b.popAnim*1.5);
+        for(var f=0;f<10;f++){
+          var fa=f/10*Math.PI*2;
           var fx=b.x+Math.cos(fa)*fragR;
           var fy=b.y+Math.sin(fa)*fragR;
           sb_ctx.beginPath();
-          sb_ctx.arc(fx,fy,3*(1-b.popAnim),0,Math.PI*2);
+          sb_ctx.arc(fx,fy,4*(1-b.popAnim),0,Math.PI*2);
           sb_ctx.stroke();
         }
         sb_ctx.globalAlpha=1;
@@ -522,36 +540,36 @@ function animateSharkScene(){
       continue;
     }
     // Bob up and down
-    var bobY=b.y+Math.sin(sb_waterTime*2+b.bobPhase)*3;
+    var bobY=b.y+Math.sin(sb_waterTime*2+b.bobPhase)*5;
     // String
     sb_ctx.strokeStyle='#9CA3AF';
-    sb_ctx.lineWidth=1;
+    sb_ctx.lineWidth=1.5;
     sb_ctx.beginPath();
     sb_ctx.moveTo(b.x,bobY+b.r);
-    sb_ctx.lineTo(b.x+Math.sin(sb_waterTime+b.bobPhase)*3,bobY+b.r+15);
+    sb_ctx.lineTo(b.x+Math.sin(sb_waterTime+b.bobPhase)*5,bobY+b.r+22);
     sb_ctx.stroke();
     // Balloon body with gradient
-    var grad=sb_ctx.createRadialGradient(b.x-4,bobY-4,2,b.x,bobY,b.r);
+    var grad=sb_ctx.createRadialGradient(b.x-6,bobY-6,3,b.x,bobY,b.r);
     grad.addColorStop(0,b.color);
-    grad.addColorStop(1,shadeColor(b.color,-20));
+    grad.addColorStop(1,shadeColor(b.color,-25));
     sb_ctx.fillStyle=grad;
     sb_ctx.beginPath();
     sb_ctx.ellipse(b.x,bobY,b.r*0.9,b.r*1.1,0,0,Math.PI*2);
     sb_ctx.fill();
-    sb_ctx.strokeStyle='rgba(0,0,0,0.2)';
-    sb_ctx.lineWidth=1;
+    sb_ctx.strokeStyle='rgba(0,0,0,0.25)';
+    sb_ctx.lineWidth=1.5;
     sb_ctx.stroke();
     // Highlight
-    sb_ctx.fillStyle='rgba(255,255,255,0.4)';
+    sb_ctx.fillStyle='rgba(255,255,255,0.45)';
     sb_ctx.beginPath();
-    sb_ctx.ellipse(b.x-4,bobY-5,3,5,-0.3,0,Math.PI*2);
+    sb_ctx.ellipse(b.x-6,bobY-8,5,8,-0.3,0,Math.PI*2);
     sb_ctx.fill();
     // Knot
-    sb_ctx.fillStyle=shadeColor(b.color,-30);
+    sb_ctx.fillStyle=shadeColor(b.color,-35);
     sb_ctx.beginPath();
-    sb_ctx.moveTo(b.x-3,bobY+b.r);
-    sb_ctx.lineTo(b.x+3,bobY+b.r);
-    sb_ctx.lineTo(b.x,bobY+b.r+4);
+    sb_ctx.moveTo(b.x-4,bobY+b.r);
+    sb_ctx.lineTo(b.x+4,bobY+b.r);
+    sb_ctx.lineTo(b.x,bobY+b.r+6);
     sb_ctx.closePath();
     sb_ctx.fill();
   }
@@ -561,7 +579,7 @@ function animateSharkScene(){
     var part=sb_particles[p];
     part.x+=part.vx;
     part.y+=part.vy;
-    part.vy+=0.15;
+    part.vy+=0.2;
     part.life-=0.02;
     if(part.life<=0){sb_particles.splice(p,1);continue;}
     sb_ctx.globalAlpha=part.life;
@@ -572,128 +590,179 @@ function animateSharkScene(){
   }
   sb_ctx.globalAlpha=1;
 
-  // Draw shark
+  // === Draw shark (scaled up for bigger canvas) ===
   sb_sharkOffset+=0.03;
-  var sharkBaseY=H*0.75;
-  var sharkBob=Math.sin(sb_sharkOffset)*5;
+  var sharkBaseY=H*0.72;
+  var sharkBob=Math.sin(sb_sharkOffset)*8;
   var sharkColor=s.sharkHit?'#FBBF24':'#64748B';
   var sharkMouthOpen=s.sharkPhase==='attacking';
 
-  // Shark swims back and forth
-  if(s.sharkPhase!=='attacking'){
-    sb_sharkX+=sb_sharkDir*0.8;
-    if(sb_sharkX>W-60)sb_sharkDir=-1;
-    if(sb_sharkX<60)sb_sharkDir=1;
+  // Lunge animation: shark rises toward balloons during attack
+  if(s.sharkPhase==='attacking'){
+    sb_sharkLunge=Math.min(1,sb_sharkLunge+0.08);
+  } else {
+    sb_sharkLunge=Math.max(0,sb_sharkLunge-0.05);
+  }
+
+  // Sink animation: shark descends on victory
+  if(s.sharkPhase==='defeated'){
+    sb_sharkSink=Math.min(1,sb_sharkSink+0.015);
+  }
+
+  // Shark swims back and forth (only when idle, not attacking or sinking)
+  if(s.sharkPhase!=='attacking'&&s.sharkPhase!=='defeated'){
+    sb_sharkX+=sb_sharkDir*1.2;
+    if(sb_sharkX>W-80)sb_sharkDir=-1;
+    if(sb_sharkX<80)sb_sharkDir=1;
   }
 
   var sx=sb_sharkX;
-  var sy=sharkBaseY+sharkBob;
+  var sy=sharkBaseY+sharkBob-sb_sharkLunge*60+sb_sharkSink*120;
+  var scale=1.8;  // Scale up entire shark
 
-  // Shark body (ellipse)
+  // If shark has sunk off-screen, skip drawing
+  if(sy>H+50){
+    // Draw "Zzz" floating up where shark was
+    sb_ctx.fillStyle='rgba(255,255,255,0.7)';
+    sb_ctx.font='bold 24px sans-serif';
+    sb_ctx.fillText('Zzz...',sx-30,H-40);
+    sb_ctx.restore();
+    sb_animId=requestAnimationFrame(animateSharkScene);
+    return;
+  }
+
+  // Shark body (ellipse) - scaled up
   sb_ctx.fillStyle=sharkColor;
   sb_ctx.strokeStyle='#374151';
-  sb_ctx.lineWidth=2;
+  sb_ctx.lineWidth=2.5;
   sb_ctx.beginPath();
-  sb_ctx.ellipse(sx,sy,35,15,sb_sharkDir>0?0.1:-0.1,0,Math.PI*2);
+  sb_ctx.ellipse(sx,sy,35*scale,15*scale,sb_sharkDir>0?0.1:-0.1,0,Math.PI*2);
   sb_ctx.fill();
   sb_ctx.stroke();
 
   // Belly (lighter)
   sb_ctx.fillStyle=shadeColor(sharkColor,15);
   sb_ctx.beginPath();
-  sb_ctx.ellipse(sx,sy+5,28,8,0,0,Math.PI);
+  sb_ctx.ellipse(sx,sy+9,28*scale,8*scale,0,0,Math.PI);
   sb_ctx.fill();
 
   // Tail fin
-  var tailX=sx-(sb_sharkDir>0?35:-35);
+  var tailX=sx-(sb_sharkDir>0?35:-35)*scale;
   sb_ctx.fillStyle=sharkColor;
   sb_ctx.beginPath();
   sb_ctx.moveTo(tailX,sy);
-  sb_ctx.lineTo(tailX-15*sb_sharkDir,sy-12);
-  sb_ctx.lineTo(tailX-10*sb_sharkDir,sy);
-  sb_ctx.lineTo(tailX-15*sb_sharkDir,sy+12);
+  sb_ctx.lineTo(tailX-15*scale*sb_sharkDir,sy-12*scale);
+  sb_ctx.lineTo(tailX-10*scale*sb_sharkDir,sy);
+  sb_ctx.lineTo(tailX-15*scale*sb_sharkDir,sy+12*scale);
   sb_ctx.closePath();
   sb_ctx.fill();
   sb_ctx.stroke();
 
   // Dorsal fin
   sb_ctx.beginPath();
-  sb_ctx.moveTo(sx-5,sy-15);
-  sb_ctx.lineTo(sx+5,sy-25);
-  sb_ctx.lineTo(sx+10,sy-15);
+  sb_ctx.moveTo(sx-5*scale,sy-15*scale);
+  sb_ctx.lineTo(sx+5*scale,sy-25*scale);
+  sb_ctx.lineTo(sx+10*scale,sy-15*scale);
   sb_ctx.closePath();
   sb_ctx.fill();
   sb_ctx.stroke();
 
   // Pectoral fin
   sb_ctx.beginPath();
-  sb_ctx.ellipse(sx+5,sy+8,8,4,0.3,0,Math.PI*2);
+  sb_ctx.ellipse(sx+5*scale,sy+8*scale,8*scale,4*scale,0.3,0,Math.PI*2);
   sb_ctx.fill();
   sb_ctx.stroke();
 
   // Eye
-  var eyeX=sx+(sb_sharkDir>0?20:-20);
+  var eyeX=sx+(sb_sharkDir>0?20:-20)*scale;
   sb_ctx.fillStyle='white';
   sb_ctx.beginPath();
-  sb_ctx.arc(eyeX,sy-5,4,0,Math.PI*2);
+  sb_ctx.arc(eyeX,sy-5*scale,5*scale,0,Math.PI*2);
   sb_ctx.fill();
-  sb_ctx.fillStyle='#1F2937';
-  sb_ctx.beginPath();
-  sb_ctx.arc(eyeX+(sb_sharkDir>0?1:-1),sy-5,2.5,0,Math.PI*2);
-  sb_ctx.fill();
-  sb_ctx.fillStyle='white';
-  sb_ctx.beginPath();
-  sb_ctx.arc(eyeX+(sb_sharkDir>0?0.5:-0.5),sy-6,0.8,0,Math.PI*2);
-  sb_ctx.fill();
-
-  // Mouth
-  var mouthX=sx+(sb_sharkDir>0?30:-30);
-  if(sharkMouthOpen){
-    // Open mouth with teeth
+  // Pupil - X eyes when defeated
+  if(s.sharkPhase==='defeated'){
+    sb_ctx.strokeStyle='#1F2937';
+    sb_ctx.lineWidth=2;
+    sb_ctx.beginPath();
+    sb_ctx.moveTo(eyeX-3,sy-8);sb_ctx.lineTo(eyeX+3,sy-2);
+    sb_ctx.moveTo(eyeX+3,sy-8);sb_ctx.lineTo(eyeX-3,sy-2);
+    sb_ctx.stroke();
+  } else {
     sb_ctx.fillStyle='#1F2937';
     sb_ctx.beginPath();
-    sb_ctx.ellipse(mouthX,sy+3,10,6,0,0,Math.PI*2);
+    sb_ctx.arc(eyeX+(sb_sharkDir>0?1:-1),sy-5*scale,3*scale,0,Math.PI*2);
+    sb_ctx.fill();
+    sb_ctx.fillStyle='white';
+    sb_ctx.beginPath();
+    sb_ctx.arc(eyeX+(sb_sharkDir>0?0.5:-0.5),sy-6*scale,1.2,0,Math.PI*2);
+    sb_ctx.fill();
+  }
+
+  // Mouth
+  var mouthX=sx+(sb_sharkDir>0?30:-30)*scale;
+  if(sharkMouthOpen){
+    // Open mouth with teeth (during attack)
+    sb_ctx.fillStyle='#1F2937';
+    sb_ctx.beginPath();
+    sb_ctx.ellipse(mouthX,sy+3*scale,12*scale,8*scale,0,0,Math.PI*2);
     sb_ctx.fill();
     // Teeth
     sb_ctx.fillStyle='white';
-    for(var t=0;t<4;t++){
-      var tx=mouthX-6+t*4;
+    for(var t=0;t<5;t++){
+      var tx=mouthX-8*scale+t*4*scale;
       sb_ctx.beginPath();
       sb_ctx.moveTo(tx,sy);
-      sb_ctx.lineTo(tx+2,sy+4);
-      sb_ctx.lineTo(tx+4,sy);
+      sb_ctx.lineTo(tx+2.5,sy+5*scale);
+      sb_ctx.lineTo(tx+5,sy);
       sb_ctx.closePath();
       sb_ctx.fill();
     }
-  } else {
-    // Closed mouth - smile
+  } else if(s.sharkPhase==='defeated') {
+    // Sad mouth (defeated)
     sb_ctx.strokeStyle='#1F2937';
-    sb_ctx.lineWidth=1.5;
+    sb_ctx.lineWidth=2.5;
     sb_ctx.beginPath();
-    sb_ctx.arc(mouthX-3,sy+2,5,0.2,Math.PI*0.8);
+    sb_ctx.arc(mouthX-3,sy+10,8,Math.PI*1.2,Math.PI*1.8,true);
+    sb_ctx.stroke();
+  } else {
+    // Closed mouth - smile (idle)
+    sb_ctx.strokeStyle='#1F2937';
+    sb_ctx.lineWidth=2;
+    sb_ctx.beginPath();
+    sb_ctx.arc(mouthX-3,sy+2,8,0.2,Math.PI*0.8);
     sb_ctx.stroke();
   }
 
   // Gills
   sb_ctx.strokeStyle=shadeColor(sharkColor,-20);
-  sb_ctx.lineWidth=1;
+  sb_ctx.lineWidth=1.5;
   for(var g=0;g<3;g++){
     sb_ctx.beginPath();
-    sb_ctx.arc(sx-(sb_sharkDir>0?10:-10)+g*3*(sb_sharkDir>0?1:-1),sy,3,-0.5,0.5);
+    sb_ctx.arc(sx-(sb_sharkDir>0?10:-10)*scale+g*3*scale*(sb_sharkDir>0?1:-1),sy,4*scale,-0.5,0.5);
     sb_ctx.stroke();
   }
 
   // Bubbles
-  sb_ctx.fillStyle='rgba(255,255,255,0.3)';
-  for(var bub=0;bub<3;bub++){
-    var bubX=sx-(sb_sharkDir>0?25:-25)+Math.sin(sb_waterTime*3+bub)*5;
-    var bubY=sy+10+((sb_waterTime*20+bub*30)%40);
+  sb_ctx.fillStyle='rgba(255,255,255,0.35)';
+  for(var bub=0;bub<4;bub++){
+    var bubX=sx-(sb_sharkDir>0?25:-25)*scale+Math.sin(sb_waterTime*3+bub)*8;
+    var bubY=sy+10+((sb_waterTime*30+bub*40)%60);
     sb_ctx.beginPath();
-    sb_ctx.arc(bubX,bubY,2+Math.sin(sb_waterTime+bub),0,Math.PI*2);
+    sb_ctx.arc(bubX,bubY,3+Math.sin(sb_waterTime+bub),0,Math.PI*2);
     sb_ctx.fill();
   }
 
   sb_ctx.restore();
+
+  // Red border flash on wrong answer (drawn AFTER restore so it doesn't shake)
+  if(sb_redFlash>0){
+    sb_ctx.strokeStyle='rgba(239,68,68,'+sb_redFlash+')';
+    sb_ctx.lineWidth=8;
+    sb_ctx.strokeRect(4,4,W-8,H-8);
+    sb_redFlash-=0.04;
+    if(sb_redFlash<0)sb_redFlash=0;
+  }
+
   sb_animId=requestAnimationFrame(animateSharkScene);
 }
 
@@ -712,30 +781,163 @@ function shadeColor(color,percent){
 
 function startSharkBattle(){
   const l=state.currentLevel;
-  sb_battleState={maxNum:l.maxNum,balloonsLeft:12,maxBalloons:12,phase:'asking',selected:null,mistakes:0,roundsDone:0,maxRounds:12,sharkHit:false,sharkPhase:'idle',questionType:0};
+  sb_battleState={maxNum:12,balloonsLeft:12,maxBalloons:12,phase:'intro',selected:null,mistakes:0,roundsDone:0,maxRounds:12,sharkHit:false,sharkPhase:'idle',questionType:0,timer:0,maxTimer:15,combo:0,bestCombo:0,lives:3,maxLives:3,roundTitle:l.title};
   sb_particles=[];
-  sb_balloons=[]; // Reset balloons so initSharkCanvas creates fresh ones
+  sb_balloons=[];
+  sb_timerInterval=null;
+  sb_sharkLunge=0;sb_sharkSink=0;sb_redFlash=0;
+  const c=document.getElementById('game-container');
+  c.innerHTML='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;background:linear-gradient(135deg,#7F1D1D,#DC2626,#991B1B);">'
+    +'<div style="font-size:6rem;animation:bounce-in 0.5s ease-out;">🦈</div>'
+    +'<h1 style="color:white;font-size:2.5rem;font-weight:900;text-shadow:0 4px 0 rgba(0,0,0,0.3);margin:1rem 0;text-align:center;animation:bounce-in 0.5s ease-out 0.2s backwards;">SHARK BATTLE!</h1>'
+    +'<p style="color:rgba(255,255,255,0.9);font-size:1.25rem;font-weight:bold;margin-bottom:1rem;animation:bounce-in 0.5s ease-out 0.4s backwards;">Pop all 12 balloons to defeat the shark!</p>'
+    +'<div style="background:rgba(255,255,255,0.2);border-radius:1rem;padding:1rem;margin:0.5rem 0;animation:bounce-in 0.5s ease-out 0.6s backwards;">'
+    +'<p style="color:white;font-size:1.1rem;text-align:center;line-height:1.8;">⏱ Answer before the timer runs out!<br>❤️ You have <b>3 lives</b> — wrong answer = shark attack!<br>🔥 Get several right <b>in a row</b> for bonus effects!</p>'
+    +'</div>'
+    +'<button class="btn btn-yellow btn-xl" style="margin-top:1.5rem;animation:bounce-in 0.5s ease-out 0.8s backwards;" onclick="startSharkRound()">START BATTLE! ⚔️</button>'
+    +'</div>';
+  if(state.narrationEnabled)setTimeout(()=>speak('SHARK BATTLE! Pop all 12 balloons to defeat the shark. You have 3 lives. Answer quickly and watch out for shark attacks!'),500);
+  if(state.soundEnabled){sfx.whoosh();setTimeout(()=>sfx.fanfare(),300);}
+}
+
+function startSharkRound(){
+  if(sb_animId)cancelAnimationFrame(sb_animId);
+  sb_battleState.phase='asking';
   renderSharkBattle();
   setTimeout(function(){initSharkCanvas();},100);
-  if(state.narrationEnabled)setTimeout(()=>speak('SHARK BATTLE! Answer correctly to pop the balloons! Defeat the shark!'),500);
+  startSharkTimer();
+}
+
+function startSharkTimer(){
+  if(sb_timerInterval)clearInterval(sb_timerInterval);
+  sb_battleState.timer=sb_battleState.maxTimer;
+  // Update timer display immediately
+  var timerEl=document.getElementById('shark-timer');
+  if(timerEl){
+    timerEl.textContent=sb_battleState.timer;
+    timerEl.style.color='#FBBF24';
+    timerEl.parentElement.style.background='#1F2937';
+    timerEl.parentElement.style.animation='';
+  }
+  sb_timerInterval=setInterval(function(){
+    if(!sb_battleState||sb_battleState.phase!=='asking')return;
+    sb_battleState.timer--;
+    var timerEl2=document.getElementById('shark-timer');
+    if(timerEl2){
+      timerEl2.textContent=sb_battleState.timer;
+      if(sb_battleState.timer<=5){
+        timerEl2.style.color='white';
+        timerEl2.parentElement.style.background='#EF4444';
+        timerEl2.parentElement.style.animation='pulse-glow 0.5s ease-in-out infinite';
+      }
+    }
+    if(sb_battleState.timer<=0){
+      clearInterval(sb_timerInterval);
+      // Trigger shark attack WITHOUT re-rendering the canvas (prevents glitch flicker)
+      triggerSharkAttack('time');
+    }
+  },1000);
+}
+
+// Centralized shark attack handler — updates visuals via canvas state only, no DOM re-render
+function triggerSharkAttack(reason){
+  var s=sb_battleState;
+  if(!s)return;
+  if(sb_timerInterval)clearInterval(sb_timerInterval);
+  s.phase='wrong';
+  s.mistakes++;
+  s.combo=0;
+  s.sharkPhase='attacking';
+  s.lives--;
+  // Visual feedback via canvas state (canvas keeps running, no flicker)
+  sb_shakeX=14;sb_shakeY=8;
+  sb_redFlash=1;
+  sb_sharkLunge=0;
+  if(state.soundEnabled){sfx.incorrect();setTimeout(()=>sfx.whoosh(),200);}
+  if(state.narrationEnabled){
+    var msg=reason==='time'?'Time is up! Shark attack!':'Oh no! Shark attack!';
+    speak(msg);
+  }
+  // Update lives display via direct DOM manipulation (no full re-render)
+  updateSharkLives(s.lives);
+  // Update combo display
+  var comboEl=document.getElementById('shark-combo');
+  if(comboEl)comboEl.textContent='0';
+  // Show feedback overlay
+  showFeedback('🦈 SHARK ATTACK!  -1 ❤️','wrong');
+  // After 2 seconds, either game over or next round
+  setTimeout(function(){
+    if(s.lives<=0){
+      // GAME OVER — show defeat screen
+      showSharkGameOver();
+    } else {
+      s.phase='asking';s.selected=null;s.sharkPhase='idle';
+      s.timer=s.maxTimer;
+      renderSharkBattle();hideFeedback();startSharkTimer();
+    }
+  },2200);
+}
+
+// Update the lives hearts display in place (no full re-render)
+function updateSharkLives(lives){
+  var el=document.getElementById('shark-lives');
+  if(!el)return;
+  var html='';
+  for(var i=0;i<3;i++){
+    html+=i<lives?'❤️':'🖤';
+  }
+  el.textContent=html;
+}
+
+// Game Over screen for shark battle (when lives = 0)
+function showSharkGameOver(){
+  if(sb_animId)cancelAnimationFrame(sb_animId);
+  if(sb_timerInterval)clearInterval(sb_timerInterval);
+  // Make shark look defeated
+  if(sb_battleState)sb_battleState.sharkPhase='defeated';
+  setTimeout(function(){
+    if(sb_animId)cancelAnimationFrame(sb_animId);
+    var c=document.getElementById('game-container');
+    var s=sb_battleState;
+    var popped=s.maxBalloons-s.balloonsLeft;
+    c.innerHTML='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;background:linear-gradient(135deg,#1F2937,#374151);">'
+      +'<div style="font-size:6rem;animation:bounce-in 0.6s ease-out;">😅</div>'
+      +'<h1 style="color:#FBBF24;font-size:2.25rem;font-weight:900;margin:1rem 0;text-align:center;animation:bounce-in 0.6s ease-out 0.2s backwards;">SHARK GOT YOU!</h1>'
+      +'<p style="color:white;font-size:1.25rem;margin-bottom:1rem;text-align:center;animation:bounce-in 0.6s ease-out 0.4s backwards;">You popped <b style="color:#FBBF24;font-size:1.5rem;">'+popped+'</b> of '+s.maxBalloons+' balloons!</p>'
+      +'<p style="color:rgba(255,255,255,0.8);font-size:1rem;margin-bottom:1.5rem;text-align:center;animation:bounce-in 0.6s ease-out 0.6s backwards;">Try again — you can do it!</p>'
+      +'<div style="display:flex;gap:1rem;animation:bounce-in 0.6s ease-out 0.8s backwards;">'
+      +'<button class="btn btn-yellow btn-lg" onclick="retryLevel()">🔄 TRY AGAIN</button>'
+      +'<button class="btn btn-gray btn-md" onclick="goToMap()">🗺️ Map</button>'
+      +'</div></div>';
+    if(state.narrationEnabled)setTimeout(()=>speak('The shark got you! You popped '+popped+' balloons. Try again!'),300);
+    if(state.soundEnabled)setTimeout(()=>sfx.incorrect(),200);
+  },1500);
 }
 
 function renderSharkBattle(){
   const s=sb_battleState;
   const c=document.getElementById('game-container');
+  // VICTORY — all balloons popped
   if(s.balloonsLeft<=0){
     if(sb_animId)cancelAnimationFrame(sb_animId);
-    if(state.soundEnabled)sfx.fanfare();
-    showConfetti(150);
+    if(sb_timerInterval)clearInterval(sb_timerInterval);
+    // Trigger shark sink animation
+    s.sharkPhase='defeated';
+    // Restart canvas for victory animation
+    setTimeout(function(){initSharkCanvas();},50);
+    if(state.soundEnabled){sfx.fanfare();setTimeout(()=>sfx.fanfare(),400);setTimeout(()=>sfx.fanfare(),800);}
+    showConfetti(200);
     showFeedback('SHARK DEFEATED! 🎉','correct');
-    if(state.narrationEnabled)setTimeout(()=>speak('You defeated the Number Shark! Amazing!'),500);
+    if(state.narrationEnabled)setTimeout(()=>speak('You did it! You defeated the Number Shark! Amazing!'),500);
     const stars=s.mistakes===0?3:s.mistakes<=2?2:1;
-    const score=Math.max(50,100-s.mistakes*10);
-    setTimeout(()=>completeLevel(stars,score),4000);
+    const score=Math.max(50,100-s.mistakes*10+s.bestCombo*5);
+    setTimeout(()=>completeLevel(stars,score),4500);
     return;
   }
+  // END BY ROUNDS — ran out of questions but didn't pop all balloons
   if(s.roundsDone>=s.maxRounds&&s.balloonsLeft>0){
     if(sb_animId)cancelAnimationFrame(sb_animId);
+    if(sb_timerInterval)clearInterval(sb_timerInterval);
     if(state.soundEnabled)sfx.fanfare();
     showConfetti(80);
     showFeedback('GREAT EFFORT! 🎉','correct');
@@ -754,21 +956,37 @@ function renderSharkBattle(){
   else if(qType===1){questionHtml='<div style="font-size:1.75rem;font-weight:900;color:'+col+';">'+NUM_WORDS[target-1]+'</div><p style="font-size:0.75rem;">Which number?</p>';}
   else{questionHtml='<div style="font-size:2rem;font-weight:900;color:'+col+';">'+target+'</div><p style="font-size:0.75rem;">What number?</p>';}
 
+  // Build lives display
+  var livesHtml='';
+  for(var li=0;li<3;li++){livesHtml+=li<s.lives?'❤️':'🖤';}
+
   c.innerHTML='<div style="flex:1;display:flex;flex-direction:column;">'
-    +'<div class="question-banner" style="border-color:#DC2626;background:#FEE2E2;"><p style="color:#991B1B;">🦈 SHARK BATTLE! Pop all '+s.balloonsLeft+' balloons!</p></div>'
-    +'<div class="progress-row"><span style="font-size:0.875rem;font-weight:bold;color:#991B1B;">Balloons:</span><div class="progress-bar"><div class="progress-fill" style="width:'+(s.balloonsLeft/s.maxBalloons*100)+'%;background:linear-gradient(to right,#EF4444,#FBBF24);"></div></div><span style="font-weight:bold;font-size:1.125rem;color:#EF4444;">'+s.balloonsLeft+'/'+s.maxBalloons+'</span></div>'
-    +'<div id="shark-canvas-container" style="width:100%;max-width:400px;margin:0 auto;position:relative;"></div>'
+    +'<div class="question-banner" style="border-color:#DC2626;background:#FEE2E2;"><p style="color:#991B1B;">🦈 '+s.roundTitle+' — Pop '+s.balloonsLeft+' balloons!</p></div>'
+    // Stats row: LIVES (left) | TIMER (center) | STREAK (right) — bigger and clearer
+    +'<div style="display:flex;gap:0.75rem;justify-content:space-between;align-items:center;margin:0.5rem auto;max-width:42rem;flex-wrap:wrap;">'
+    // Lives
+    +'<div style="background:'+(s.lives<=1?'#EF4444':'#1F2937')+';color:white;border-radius:0.75rem;padding:0.5rem 1rem;font-weight:900;font-size:1.5rem;display:flex;align-items:center;gap:0.5rem;'+(s.lives<=1?'animation:pulse-glow 0.6s ease-in-out infinite;':'')+'\"><span id="shark-lives">'+livesHtml+'</span></div>'
+    // Timer (center, biggest)
+    +'<div id="shark-timer-box" style="background:'+(s.timer<=5?'#EF4444':'#1F2937')+';color:'+(s.timer<=5?'white':'#FBBF24')+';border-radius:0.75rem;padding:0.5rem 1.25rem;font-weight:900;font-size:1.75rem;display:flex;align-items:center;gap:0.5rem;'+(s.timer<=5?'animation:pulse-glow 0.5s ease-in-out infinite;':'')+'\">⏱<span id="shark-timer">'+s.timer+'</span></div>'
+    // Streak (replaces "combo" - just shows the number, no "x" suffix)
+    +'<div style="background:#FBBF24;color:#7C2D12;border-radius:0.75rem;padding:0.5rem 1rem;font-weight:900;font-size:1.5rem;display:flex;align-items:center;gap:0.5rem;\">🔥<span id="shark-combo">'+s.combo+'</span></div>'
+    +'</div>'
+    // Shark HP bar (balloons remaining)
+    +'<div class="progress-row\"><span style="font-size:0.875rem;font-weight:bold;color:#991B1B;\">🦈 Shark HP:</span><div class="progress-bar\"><div class="progress-fill" style=\"width:'+(s.balloonsLeft/s.maxBalloons*100)+'%;background:linear-gradient(to right,#EF4444,#FBBF24);\"></div></div><span style="font-weight:bold;font-size:1.125rem;color:#EF4444;\">'+s.balloonsLeft+'/'+s.maxBalloons+'</span></div>'
+    // Bigger canvas container — was max-width:400px, now 720px
+    +'<div id="shark-canvas-container" style="width:100%;max-width:720px;margin:0.5rem auto;position:relative;"></div>'
     +'<div style="display:flex;justify-content:center;gap:1rem;align-items:center;margin:0.25rem 0;">'+questionHtml+'</div>'
     +'<div style="text-align:center;font-weight:bold;color:#374151;font-size:1rem;margin:0.5rem 0;">Tap the correct number!</div>'
-    +'<div class="choice-grid" style="max-width:32rem;margin:0 auto;">'
+    +'<div class="choice-grid" style="max-width:36rem;margin:0 auto;">'
     +choices.map(function(n,i){
       var cc=NUM_COLORS[n-1];
-      var cls='choice-btn hover-speak';
+      // NOTE: hover-speak REMOVED from shark battle choice buttons — audio priority is narration > hover > SFX
+      var cls='choice-btn';
       var st='border-color:'+cc+';color:'+cc+';';
       if(s.selected===i)st+='background:'+cc+'22;';
       if(s.phase==='correct'&&n===target)cls+=' correct';
       if(s.phase==='wrong'&&s.selected===i&&n!==target)cls+=' wrong';
-      return '<button class="'+cls+'" style="'+st+'" data-speak="'+NUM_WORDS[n-1]+'" onclick="sbBattleSelect('+i+')" '+(s.phase!=='asking'?'disabled':'')+'><span style="font-size:2rem;">'+n+'</span></button>';
+      return '<button class="'+cls+'" style="'+st+'" onclick="sbBattleSelect('+i+')" '+(s.phase!=='asking'?'disabled':'')+'><span style="font-size:2rem;">'+n+'</span></button>';
     }).join('')
     +'</div></div>';
 
@@ -779,25 +997,31 @@ function renderSharkBattle(){
 function sbBattleSelect(i){
   const s=sb_battleState;
   if(s.phase!=='asking')return;
+  if(sb_timerInterval)clearInterval(sb_timerInterval);
   s.selected=i;s.roundsDone++;
   if(s.choices[i]===s.target){
+    // CORRECT — pop a balloon
     if(state.soundEnabled){sfx.correct();sfx.pop();}
     s.phase='correct';s.balloonsLeft--;s.sharkHit=true;s.sharkPhase='hit';
-    // Pop the next balloon
+    s.combo++;if(s.combo>s.bestCombo)s.bestCombo=s.combo;
+    // Escalating difficulty: timer drops as balloons pop
+    s.maxTimer=Math.max(8,15-Math.floor((s.maxBalloons-s.balloonsLeft)/2));
+    // Find first unpopped balloon and pop it with particle explosion
     for(var j=0;j<sb_balloons.length;j++){
       if(!sb_balloons[j].popped){
         sb_balloons[j].popped=true;
         sb_balloons[j].popAnim=0;
-        // Create particle explosion
         var b=sb_balloons[j];
-        for(var p=0;p<15;p++){
-          var angle=p/15*Math.PI*2;
-          var speed=2+Math.random()*3;
+        // Bigger particle explosions with higher streak
+        var numParts=12+Math.min(s.combo,8)*2;
+        for(var p=0;p<numParts;p++){
+          var angle=p/numParts*Math.PI*2;
+          var speed=2+Math.random()*5;
           sb_particles.push({
             x:b.x,y:b.y,
             vx:Math.cos(angle)*speed,
-            vy:Math.sin(angle)*speed-1,
-            r:3+Math.random()*2,
+            vy:Math.sin(angle)*speed-2,
+            r:4+Math.random()*4,
             color:b.color,
             life:1
           });
@@ -805,21 +1029,29 @@ function sbBattleSelect(i){
         break;
       }
     }
-    if(state.narrationEnabled)speak(NUM_WORDS[s.target-1]+'! POP!');
+    // Streak milestone announcements — ONLY at 3, 5, 7, 10 (not every correct answer)
+    // Replaces the old "X combo!" voice that was said too often and confused ESL learners
+    var milestone=s.combo===3||s.combo===5||s.combo===7||s.combo===10;
+    if(milestone&&state.narrationEnabled){
+      var msWord=['','one','two','THREE','four','FIVE','six','SEVEN','eight','nine','TEN'][s.combo];
+      setTimeout(()=>speak(msWord+' in a row! Amazing!'),300);
+    } else if(state.narrationEnabled){
+      speak(NUM_WORDS[s.target-1]+'!');
+    }
+    // Pitch escalation on streak (subtle audio reward, no voice)
+    if(state.soundEnabled&&s.combo>=2){
+      setTimeout(()=>playTone(440+Math.min(s.combo,10)*60,0.15,'sine',0.12),100);
+    }
+    // Update combo display via DOM (no full re-render)
+    var comboEl=document.getElementById('shark-combo');
+    if(comboEl)comboEl.textContent=s.combo;
+    // Reset shark hit state
     setTimeout(function(){s.sharkHit=false;s.sharkPhase='idle';},600);
-    setTimeout(function(){renderSharkBattle();},800);
+    // Re-render for next round after 800ms
+    setTimeout(function(){renderSharkBattle();startSharkTimer();},800);
   } else {
-    if(state.soundEnabled)sfx.incorrect();
-    s.phase='wrong';s.mistakes++;s.sharkPhase='attacking';
-    // Screen shake
-    sb_shakeX=10;sb_shakeY=5;
-    if(state.narrationEnabled)speak('Wrong! The shark attacks!');
-    renderSharkBattle();
-    showFeedback('🦈 SHARK ATTACK! 🤔','wrong');
-    setTimeout(function(){
-      s.phase='asking';s.selected=null;s.sharkPhase='idle';
-      renderSharkBattle();hideFeedback();
-    },2000);
+    // WRONG — trigger shark attack via centralized handler (no canvas re-render = no glitch flicker)
+    triggerSharkAttack('wrong');
   }
 }
 

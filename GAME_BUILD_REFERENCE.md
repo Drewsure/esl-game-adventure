@@ -11,6 +11,10 @@
 3. [Tech Stack & Architecture](#3-tech-stack--architecture)
 4. [Standalone HTML Build Procedure](#4-standalone-html-build-procedure)
 5. [Critical Rules (Non-Negotiable)](#5-critical-rules-non-negotiable)
+   - Rules 1-25: Original build rules (animations, drag-drop, SVGs, scene rendering)
+   - Rules 26-30: Data loss prevention, hover-speak, UTF-8 base64, emoji stripping
+   - Rules 31-33: Boss World structure, Canvas animations, no re-render mid-attack
+   - Rules 34-36: PowerShell push script, lock check, push verification
 6. [Touch Device Compatibility](#6-touch-device-compatibility)
 7. [SVG & Illustration Rules](#7-svg--illustration-rules)
 8. [Scene Rendering & Z-Index](#8-scene-rendering--z-index)
@@ -20,6 +24,8 @@
 12. [State Management & Persistence](#12-state-management--persistence)
 13. [Layout & Responsiveness](#13-layout--responsiveness)
 14. [Mandatory Final Checklist (95% Data Guard)](#14-mandatory-final-checklist-95-data-guard)
+15. [Data Loss Prevention Protocol](#15-data-loss-prevention-protocol) — see also `DATA_LOSS_PREVENTION.md`
+16. [Git Push Workflow](#16-git-push-workflow) — PowerShell script with lock check (Rules 34-36)
 
 ---
 
@@ -409,175 +415,212 @@ window._flashcardTimer = setTimeout(() => el.classList.remove('speaking'), 1200)
 - Stop on the target with a "snap" sound
 - Then show the question
 
-### Rule 26: Text color must contrast with background (NO white-on-white)
-**Bug:** The rabbit's color was `#FAFAF9` (near-white), so "rabbit" text was invisible on white backgrounds.
+### Rule 26: ALWAYS snapshot before editing a deliverable (Data Loss Prevention)
+**Bug:** Sandbox resets between conversation turns have destroyed hours of work. A single live file in `download/` is NOT a backup.
 
-**Fix:** Never use near-white colors (e.g., `#FAFAF9`, `#F5F5F5`) for text/border colors. Always use a clearly visible color. If the animal is white (rabbit, mouse), use a tan/brown color (`#D4A574`) for the text and borders instead.
+**Fix:** Before ANY edit to a file in `/home/z/my-project/download/`, take a timestamped snapshot:
+```bash
+mkdir -p /home/z/my-project/snapshots
+cp /home/z/my-project/download/<file>.html \
+   "/home/z/my-project/snapshots/<file>_$(date +%Y%m%d_%H%M%S).pre_<tag>.html"
+```
+Verify the snapshot exists before calling `Edit` / `MultiEdit` / `Write`. See `DATA_LOSS_PREVENTION.md` for the full 5-layer protocol.
 
-### Rule 27: ALL text boxes must have hover + karaoke speech
-**Pattern:** Every text box (question banners, choice buttons, labels) should have:
-- `.hover-speak` CSS class for hover effect (scale + glow)
-- `data-speak` attribute with the text to speak
-- On hover/tap, speak the text with karaoke pulse animation
-- Use `attachHoverSpeak()` after every render to bind listeners
+### Rule 27: Hover-speak on ALL text elements ( karaoke style)
+**Pattern:** ESL learners aged 3-9 need to hear words spoken aloud. Every text element with educational value should have hover-speak enabled.
 
+**Implementation:**
+```html
+<div class="question-banner hover-speak" data-speak="How many birds?">How many birds?</div>
+<button class="choice-btn hover-speak" data-speak="three">3</button>
+```
+- Class `hover-speak` triggers `hoverSpeak(el)` on `mouseenter` and `click`
+- `data-speak` attribute overrides the spoken text (useful for stripping emoji)
+- Use a `MutationObserver` to auto-bind listeners to dynamically rendered elements (see Rule 28)
+
+### Rule 28: MutationObserver for dynamically rendered hover-speak elements
+**Bug:** `attachHover()` only runs once. Elements rendered after page load (via `innerHTML`) don't get hover listeners.
+
+**Fix:** Use a `MutationObserver` in `init()`:
 ```javascript
-// CSS
-.hover-speak { cursor: pointer; transition: all 0.2s; }
-.hover-speak:hover { transform: scale(1.03); box-shadow: 0 0 12px 4px rgba(251,191,36,0.5); }
-.hover-speak.speaking { animation: karaoke-pulse 0.3s ease-in-out infinite alternate; }
-
-// HTML
-<div class="question-banner hover-speak" data-speak="Do you have a dog?">...</div>
-<button class="choice-btn hover-speak" data-speak="dog">...</button>
-
-// JS - call after every render
-function attachHoverSpeak() {
-  document.querySelectorAll('.hover-speak').forEach(el => {
-    if (el._hoverAttached) return;
-    el._hoverAttached = true;
-    el.addEventListener('mouseenter', () => hoverSpeak(el));
-    el.addEventListener('click', e => { hoverSpeak(el); });
+if (!window._hoverObserver) {
+  window._hoverObserver = new MutationObserver(() => {
+    document.querySelectorAll('.hover-speak:not([data-hover-bound])').forEach(el => {
+      el.setAttribute('data-hover-bound', '1');
+      el.addEventListener('mouseenter', () => hoverSpeak(el));
+      el.addEventListener('click', e => {
+        if (e.target === el || el.contains(e.target)) hoverSpeak(el);
+      });
+    });
   });
+  window._hoverObserver.observe(document.body, { childList: true, subtree: true });
 }
 ```
 
-### Rule 28: Add "Read Aloud" hover mode for younger children
-**Pattern:** For matching/memory games, add a toggle that lets young children (who can't read) hover over any card/choice and hear the word spoken aloud.
+### Rule 29: UTF-8 safe base64 for embedding games in hub
+**Bug:** `atob()` corrupts UTF-8 emojis when decoding base64-encoded game HTML. Emojis like 🦈🎉❤️ become mojibake.
 
-**Implementation:**
-- Add a toggle button: "🔊 Read Aloud" (blue pill, toggleable)
-- When ON, hovering over any card speaks its content
-- When OFF, cards are silent on hover (normal mode for older children)
-- Default: OFF (older children can turn it on for younger siblings)
-
-### Rule 29: Avoid low-contrast color combinations
-**Bug:** Orange text on green background was difficult to read.
-
-**Fix:** Check all text/background color combinations for contrast. Avoid:
-- Orange (#F97316) on green (#22C55E)
-- Yellow (#FBBF24) on white (#FFFFFF)
-- Light colors on light backgrounds
-- Use WCAG AA minimum contrast ratio (4.5:1 for normal text)
-
-### Rule 30: Challenge mode should use DIFFERENT content for matching
-**Bug:** Challenge showed a snake picture → matched to snake name + snake picture. Too easy — child just matches the same picture.
-
-**Fix:** In challenge mode, show a **habitat picture** (e.g., dog house, fish bowl, jungle, pond) instead of the pet picture. The child must identify which pet lives in that habitat, then match it to the correct pet name + pet picture choices. This creates genuine cognitive challenge:
-- Show: 🏠 dog house habitat
-- Choices: [dog 🐶] [cat 🐱] [rabbit 🐰] [horse 🐴]
-- Answer: dog (because dogs live in dog houses)
-
-### Rule 31: SVG illustrations must be clearly distinguishable from each other
-**Bug:** Lizard looked like turtle (both green, similar shape). Dog looked like hamster (similar brown).
-
-**Fix:**
-- **Dog:** Golden yellow (#FCD34D) with floppy ears and tongue — clearly different from hamster
-- **Horse:** Brown body with mane, pointed snout, 4 legs — clearly equine
-- **Gorilla:** Large dark body, brow ridge, wide flat nose — clearly ape
-- **Crayfish:** Red body with big pincers, antennae, tail segments — clearly crustacean
-- **Beetle:** Dark oval body, 6 legs, antennae, wing spots — clearly insect
-- **Lizard:** Elongated body, pointed head, long tail, splayed legs — clearly reptile (NOT turtle)
-- Always test: can a child tell them apart at a glance?
-
-### Rule 32: Base64 encoding in mega-file MUST use UTF-8 decoding
-**Bug:** The ESL Game Hub embedded games as base64, but `atob()` corrupts multi-byte UTF-8 characters (emojis show as garbled text like `ӠԨԪ`).
-
-**Fix:** Use `TextDecoder` for proper UTF-8 decoding:
+**Fix:** Encode UTF-8 bytes → base64. Decode base64 → Uint8Array → TextDecoder('utf-8'):
 ```javascript
-// ❌ WRONG — corrupts emoji
-var html = atob(b64);
+// Encode (Python side, when building the hub):
+import base64
+b64 = base64.b64encode(html.encode('utf-8')).decode('ascii')
 
-// ✅ CORRECT — proper UTF-8
+// Decode (JavaScript side, in the hub):
 var binary = atob(b64);
 var bytes = new Uint8Array(binary.length);
 for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
 var html = new TextDecoder('utf-8').decode(bytes);
 ```
 
-### Rule 33: Hover-speak MUST strip emoji from text
-**Bug:** `hoverSpeak()` used `el.textContent.trim()` which includes emoji characters (🐦, ⬆️, 🏠). The voice reader spoke the emoji description or garbled text.
+### Rule 30: Strip emoji from spoken text
+**Bug:** `hoverSpeak()` reads `el.textContent` which includes emoji. Speech synthesis reads emoji as "shark face" "party popper" etc., confusing ESL learners.
 
-**Fix:** If no `data-speak` attribute, strip non-ASCII characters before speaking:
+**Fix:** Strip non-ASCII before speaking:
 ```javascript
-var word = el.dataset.speak;
-if (!word) {
-  var t = el.textContent;
-  word = t.replace(/[^\x20-\x7E]/g, "").trim();
+function hoverSpeak(el) {
+  var word = el.dataset.speak || el.textContent.replace(/[^\x20-\x7E]/g, '').trim();
+  if (!word) return;
+  // ... speak(word)
 }
 ```
-This keeps only ASCII printable characters (letters, numbers, spaces, basic punctuation).
+Always provide `data-speak` for elements that contain emoji + text, so the spoken text is explicit.
 
-### Rule 34: Always provide PowerShell instructions for GitHub push
-**Pattern:** After every significant update, provide PowerShell commands for the user to push to GitHub.
+### Rule 31: Boss World is the 5th world (not boss levels in each world)
+**Pattern:** Each game has 4 regular worlds (e.g., Tiny/Small/Big/Master for Number Town). The Boss World is a 5th world with 4 boss levels, each using the maximum number range.
 
-**Standard commands:**
+**Implementation:**
+```javascript
+WORLDS = [
+  {id:'tiny',   name:'Tiny Numbers',  range:'1-3',  ...},
+  {id:'small',  name:'Small Numbers', range:'1-6',  ...},
+  {id:'big',    name:'Big Numbers',   range:'1-9',  ...},
+  {id:'master', name:'Master Numbers',range:'1-12', ...},
+  {id:'boss',   name:'🦈 Boss World',  range:'1-12', ...}  // 5th world, always maxNum:12
+];
+LEVELS = [
+  // ... 32 regular levels across 4 worlds ...
+  {id:'bo-1',worldId:'boss',maxNum:12,mode:'sharkBattle',title:'Shark Battle Round 1'},
+  {id:'bo-2',worldId:'boss',maxNum:12,mode:'sharkBattle',title:'Shark Battle Round 2'},
+  {id:'bo-3',worldId:'boss',maxNum:12,mode:'sharkBattle',title:'Shark Battle Round 3'},
+  {id:'bo-4',worldId:'boss',maxNum:12,mode:'sharkBattle',title:'FINAL SHARK BATTLE!'}
+];
+```
+
+### Rule 32: Canvas for animated boss battles (not DOM/SVG)
+**Pattern:** Boss battles need smooth 60fps animations (water waves, swimming shark, particle explosions, screen shake). DOM/SVG can't keep up — use HTML5 Canvas.
+
+**Implementation:**
+- Single `<canvas>` element inside a container div
+- `requestAnimationFrame` loop in `animateSharkScene()`
+- All state in module-level vars: `sb_balloons[]`, `sb_particles[]`, `sb_shakeX`, `sb_waterTime`
+- Canvas internal resolution: 720x380 (scaled by CSS to container width)
+- NEVER re-render the canvas mid-animation (see Rule 33)
+
+### Rule 33: NEVER re-render canvas mid-animation (causes glitch flicker)
+**Bug:** Calling `renderSharkBattle()` during a shark attack destroys `c.innerHTML` and re-creates the canvas while the animation loop is running. This causes rapid visual glitching/flicker.
+
+**Fix:** Centralize attack logic in a handler that updates visuals via canvas state only — NO `renderSharkBattle()` call until after the attack completes:
+```javascript
+function triggerSharkAttack(reason) {
+  var s = sb_battleState;
+  if (sb_timerInterval) clearInterval(sb_timerInterval);
+  s.phase = 'wrong';
+  s.mistakes++;
+  s.lives--;
+  s.sharkPhase = 'attacking';
+  // Update canvas state — the running animation loop picks these up
+  sb_shakeX = 14; sb_shakeY = 8;
+  sb_redFlash = 1;
+  // Update lives display via DIRECT DOM manipulation (no full re-render)
+  updateSharkLives(s.lives);
+  // Show feedback overlay
+  showFeedback('SHARK ATTACK! -1 ❤️', 'wrong');
+  // AFTER 2.2s, THEN re-render for next round
+  setTimeout(function() {
+    if (s.lives <= 0) { showSharkGameOver(); }
+    else {
+      s.phase = 'asking'; s.sharkPhase = 'idle';
+      renderSharkBattle();  // Now safe to re-render
+      startSharkTimer();
+    }
+  }, 2200);
+}
+```
+
+### Rule 34: Use the PowerShell push script for ALL git pushes
+**Bug:** Concurrent pushes (e.g., from multiple terminals or CI) can corrupt the git repo. Manual `git push` commands skip safety checks.
+
+**Fix:** Use the script at `/home/z/my-project/scripts/push.ps1` for every push:
 ```powershell
-cd "D:\ESL GAME ADVENTURE"
-git add *.html *.md
-git commit -m "vX.X: Description of changes"
-git push
+# Default commit message (timestamp)
+.\scripts\push.ps1
+
+# Custom commit message
+.\scripts\push.ps1 -Message "v7.2: fix shark attack glitch"
+
+# Force push (DANGER — only for rebasing)
+.\scripts\push.ps1 -Force
 ```
+The script performs 10 steps: lock check → acquire lock → status → stage → commit → check remote → pull rebase → push → release lock → verify. See Rule 35 for the lock mechanism.
 
-**Key rules:**
-- Always use `cd "D:\ESL GAME ADVENTURE"` (the user's project folder)
-- Use `git add *.html *.md` (not `git add .` to avoid adding system files)
-- Provide the exact commit message
-- If new files were added, remind the user to download them first
+### Rule 35: Lock check before every push (prevents concurrent push corruption)
+**Pattern:** A lock file (`.git/push.lock`) prevents two pushes from running at the same time.
 
-### Rule 35: Always sandbox-test each update before delivery
-**Pattern:** After making ANY change to a game file, ALWAYS:
-1. Copy the updated file to `/home/z/my-project/public/`
-2. Open it in Agent Browser with a cache-busting `?v=N` parameter
-3. Verify the page loads without errors
-4. Test at least one game mode end-to-end
-5. Run the 95% Data Guard checklist
-6. Only then provide the download link to the user
+**Lock lifecycle:**
+1. **Check:** If `.git/push.lock` exists and is < 10 minutes old → ABORT (another push is running)
+2. **Auto-clear stale:** If lock is > 10 minutes old → assume crashed, auto-clear and proceed
+3. **Acquire:** Create lock file with PID + timestamp
+4. **Work:** Commit, pull, push
+5. **Release:** Delete lock file (in normal exit AND error paths via `trap`)
+6. **Manual clear:** `Remove-Item -Force .git\push.lock` (only if you're sure no push is running)
 
-**Never** provide a download link without testing first.
-
-### Rule 36: GitHub push MUST include a lock check to prevent accidental erasure
-**Pattern:** Before every `git push`, verify the working directory is the correct project folder and that no accidental files are staged.
-
-**PowerShell commands with lock check:**
+**PowerShell snippet:**
 ```powershell
-# LOCK CHECK - Run these BEFORE pushing
-cd "D:\ESL GAME ADVENTURE"
+$LockFile = ".git\push.lock"
+$StaleMinutes = 10
 
-# 1. Verify we're in the right folder
-$loc = Get-Location
-if ($loc.Path -ne "D:\ESL GAME ADVENTURE") {
-    Write-Host "ERROR: Wrong directory! Aborting." -ForegroundColor Red
-    return
+if (Test-Path $LockFile) {
+    $lockAge = (Get-Date) - (Get-Item $LockFile).LastWriteTime
+    if ($lockAge.TotalMinutes -gt $StaleMinutes) {
+        Remove-Item -Force $LockFile  # stale, auto-clear
+    } else {
+        Write-Host "ACTIVE LOCK: another push is running. Wait $StaleMinutes min." -ForegroundColor Red
+        exit 1
+    }
 }
 
-# 2. Check what's staged (should only be .html and .md files)
-git status
+# Acquire lock
+"$PID | $(Get-Date -Format 'o')" | Out-File -FilePath $LockFile -Encoding ascii -NoNewline
 
-# 3. Verify file count (should be 6-7 files)
-$fileCount = (Get-ChildItem *.html, *.md -ErrorAction SilentlyContinue).Count
-Write-Host "Files in folder: $fileCount (expected 6-7)"
-if ($fileCount -lt 5 -or $fileCount -gt 10) {
-    Write-Host "WARNING: Unexpected file count! Check before pushing." -ForegroundColor Yellow
-    return
+# Ensure release on error
+trap {
+    if (Test-Path $LockFile) { Remove-Item -Force $LockFile -ErrorAction SilentlyContinue }
+    exit 1
 }
 
-# 4. Only add HTML and MD files (never system files)
-git add *.html *.md
+# ... git operations ...
 
-# 5. Commit with descriptive message
-git commit -m "vX.X: Description of changes"
-
-# 6. Push
-git push
+# Release lock on success
+Remove-Item -Force $LockFile -ErrorAction SilentlyContinue
 ```
 
-**Key safety measures:**
-- Folder path verification (`Get-Location` check)
-- File count check (expected 6-7 files)
-- Only `*.html *.md` are staged (never `git add .`)
-- `git status` review before commit
-- Abort if anything looks wrong
+### Rule 36: Push verification (local == remote hash check)
+**Pattern:** After every push, verify that local and remote commits match. This catches silent push failures (network issues, auth problems).
+
+**PowerShell snippet (end of push.ps1):**
+```powershell
+$localHash  = git rev-parse main
+$remoteHash = git rev-parse origin/main
+
+if ($localHash -eq $remoteHash) {
+    Write-Host "In sync: $localHash" -ForegroundColor Green
+} else {
+    Write-Host "DIVERGED! Local=$localHash Remote=$remoteHash" -ForegroundColor Red
+    exit 1
+}
+```
+If verification fails: do NOT re-run push.ps1 immediately. First run `git fetch origin` then `git log origin/main..main` to see what's ahead, and `git log main..origin/main` to see what's behind. Resolve manually before pushing again.
 
 ---
 
@@ -1232,12 +1275,14 @@ Stage Summary:
 | Emoji don't render on pills | Device-specific emoji support | Use SVG illustrations in pills, not emoji |
 | Karaoke "speaking" class disappears instantly | speechSynthesis fires onend immediately | Use timer-based 1.2s minimum duration |
 | Slot machine in wrong mode | Was in Bingo, should be Animal Match | Match the animation to the game mode's theme |
-| Rabbit text white-on-white | Pet color #FAFAF9 (near-white) | Use #D4A574 (tan) for white animals |
-| No hover speech on text boxes | Only flashcard pills had karaoke | Add .hover-speak class + attachHoverSpeak() to all text |
-| Orange on green hard to read | Low contrast combination | Check WCAG AA ratio, use darker colors |
-| Challenge too easy (same picture) | Pet picture → match same pet | Use habitat pictures instead (dog house, fish bowl, etc.) |
-| Lizard looks like turtle | Similar green shape | Lizard = elongated + pointed head + long tail |
-| Dog looks like hamster | Similar brown color | Dog = golden yellow (#FCD34D) + floppy ears + tongue |
+| **Shark attack causes rapid glitch flicker** | `renderSharkBattle()` is called mid-attack, which destroys `c.innerHTML` and re-creates the canvas mid-animation | **Centralize attack logic in `triggerSharkAttack(reason)` that updates visuals via canvas state only — NO `renderSharkBattle()` call until after the attack completes** |
+| **"Combo" terminology confuses young ESL learners** | "Combo" is a fighting-game term (Street Fighter) — meaningless to ages 3-9 ESL | Use "streak" + flame icon for display; speak "X in a row!" only at milestones (3, 5, 7, 10), not every correct answer |
+| **Shark battle canvas too small on tablets** | Canvas was 320x200 — too tiny for tablet visibility | Use 720x380 internal resolution, max-width:720px container. Scale all sprites with a `scale` variable (e.g., 1.8x). Targets ≥80px for kid touch accuracy |
+| **Hover-speak cancels question narration** | `hoverSpeak()` calls `speechSynthesis.cancel()` then speaks — interrupts question audio when kid hovers a choice button | Remove `hover-speak` class from shark battle choice buttons. Audio priority: narration > hover > SFX. During timed gameplay, kids should focus on answering, not exploring |
+| **Defeat/victory unclear to user** | "SHARK DEFEATED!" message alone isn't dramatic enough; game over has no consequence | Add lives system (3 hearts ❤️❤️❤️). Shark attack = -1 heart + red border flash + screen shake. 0 hearts = "SHARK GOT YOU!" retry screen. Victory = shark sinks with X-eyes + Zzz + triple fanfare + 200 confetti |
+| **Sandbox reset destroys work** | Single live file in `download/` is not a backup | Follow `DATA_LOSS_PREVENTION.md` 5-layer protocol: snapshot before edit, append worklog, persist scripts, sync MD, run 95% Data Guard |
+| **Shark attack glitch on timer timeout** | Same root cause as click-triggered attack — `renderSharkBattle()` called inside timer callback mid-attack | Route timer timeout through same `triggerSharkAttack('time')` handler — never re-render canvas mid-attack |
+| **Lives display doesn't update mid-attack** | Full `renderSharkBattle()` would destroy canvas, so lives can't be updated via re-render | Use direct DOM manipulation: `document.getElementById('shark-lives').textContent = '❤️❤️🖤'` — no full re-render needed |
 
 ---
 
