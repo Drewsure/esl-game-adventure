@@ -280,6 +280,7 @@ const WORLDS = [
   { id:'afternoon', name:'Afternoon', emoji:'☀️', color:'#F97316', desc:'Time to play!' },
   { id:'evening',   name:'Evening',   emoji:'🌆', color:'#8B5CF6', desc:'Sun is setting!' },
   { id:'night',     name:'Night',     emoji:'🌙', color:'#3B82F6', desc:'Time for bed!' },
+  { id:'boss',      name:'Storybook', emoji:'📖', color:'#DC2626', desc:'A day in your life!' },
 ];
 
 const WORLD_LEVEL_ORDER = {
@@ -287,6 +288,7 @@ const WORLD_LEVEL_ORDER = {
   afternoon: ['af-1','af-2','af-3','af-4','af-5','af-6','af-7','af-8'],
   evening:   ['ev-1','ev-2','ev-3','ev-4','ev-5','ev-6','ev-7','ev-8'],
   night:     ['ni-1','ni-2','ni-3','ni-4','ni-5','ni-6','ni-7','ni-8'],
+  boss:      ['bo-1'],
 };
 
 // Generate times for levels
@@ -358,6 +360,8 @@ const LEVELS = [
   { id:'ni-6', worldId:'night', index:5, title:'Night Mix', mode:'readClock', ageGroup:'6-9', minuteFilter: m => true },
   { id:'ni-7', worldId:'night', index:6, title:'Night Detective', mode:'challenge', ageGroup:'6-9', minuteFilter: m => true },
   { id:'ni-8', worldId:'night', index:7, title:'Night Master', mode:'challenge', ageGroup:'6-9', minuteFilter: m => true },
+  // BOSS WORLD - Day-in-the-Life Storybook (1 mega-level, progressive stages)
+  { id:'bo-1', worldId:'boss', index:0, title:'📖 A Day in Your Life', mode:'dayInLife', ageGroup:'5-9', minuteFilter: m => true },
 ];
 
 // SVG CLOCK - generates an analog clock SVG with given hour/minute
@@ -570,7 +574,7 @@ function renderMap() {
       const lvlUnlocked = isLevelUnlocked(level.id, world.id);
       const stars = state.progress[level.id]?.stars || 0;
       const completed = state.progress[level.id]?.completed;
-      const modeIcons = { readClock:'🕐', listenMatch:'👂', memoryMatch:'🃏', sentenceBuilder:'📝', setClock:'🔧', challenge:'🏆' };
+      const modeIcons = { readClock:'🕐', listenMatch:'👂', memoryMatch:'🃏', sentenceBuilder:'📝', setClock:'🔧', challenge:'🏆', dayInLife:'📖' };
       levelsHtml += `<button class="level-btn" ${!lvlUnlocked ? 'disabled' : ''} onclick="startLevel('${world.id}', '${level.id}')">
         <div class="level-num" style="color:${world.color}">L${lIdx+1}</div>
         <div class="level-icon">${lvlUnlocked ? modeIcons[level.mode] : '🔒'}</div>
@@ -611,7 +615,7 @@ function renderGameIntro() {
   const level = state.currentLevel;
   document.getElementById('game-level-info').innerHTML = `<span style="font-size:1rem">${WORLDS.find(w=>w.id===state.currentWorldId)?.emoji||''}</span><span>${level.title}</span>`;
   document.getElementById('game-total-stars').textContent = totalStars();
-  const modeHints = { readClock:'Look at the clock and tap the right time!', listenMatch:'Listen to the time and tap the matching clock!', memoryMatch:'Flip cards to match clocks and times!', sentenceBuilder:'Build the sentence by tapping the right words!', setClock:'Move the hands to match the time!', challenge:'🏆 CHALLENGE! Read, set, and tell the time!' };
+  const modeHints = { readClock:'Look at the clock and tap the right time!', listenMatch:'Listen to the time and tap the matching clock!', memoryMatch:'Flip cards to match clocks and times!', sentenceBuilder:'Build the sentence by tapping the right words!', setClock:'Move the hands to match the time!', challenge:'🏆 CHALLENGE! Read, set, and tell the time!', dayInLife:'📖 BOSS! Set the clock for each event in a day!' };
   const container = document.getElementById('game-container');
   container.innerHTML = `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;"><div class="intro-card"><div style="text-align:center;margin-bottom:1rem;"><div class="intro-age">${level.ageGroup} years</div><h2 class="intro-title">${level.title}</h2></div><div class="intro-question" style="background:#DBEAFE;border-color:#3B82F6;">⏰ ${modeHints[level.mode]}</div><div class="intro-buttons">${state.narrationEnabled ? '<button class="btn btn-blue btn-md" onclick="speakQuestion()">🔊 Hear it</button>' : ''}<button class="btn btn-green btn-lg" onclick="startGameplay()">Let's Go! 🚀</button></div></div></div>`;
 }
@@ -627,6 +631,7 @@ function startGameplay() {
   else if (level.mode === 'memoryMatch') startMemoryMatch();
   else if (level.mode === 'sentenceBuilder') startSentenceBuilder();
   else if (level.mode === 'challenge') startChallenge();
+  else if (level.mode === 'dayInLife') startDayInLife();
 }
 
 // Helper: generate a valid time for a level
@@ -794,6 +799,188 @@ function checkSetClock() {
     setTimeout(() => hideFeedback(), 1500);
   }
 }
+
+// ============================================================
+// BOSS MODE: DAY-IN-THE-LIFE STORYBOOK
+// ============================================================
+// 6 daily events: wake, breakfast, school, play, dinner, sleep
+// Kid sets the clock for each event. Wrong = character yawns (humor).
+// Inspired by GCompris clockgame (set-the-clock) + PBS Kids narrative framing.
+// 1 mega-level with progressive stages, not 4 separate levels.
+let dayInLifeState = null;
+const DAY_EVENTS = [
+  { id:'wake',      emoji:'🌅', label:'Wake Up',     defaultTime:{hour:7,minute:0},  spoken:'seven o\'clock',  hint:'I wake up early!' },
+  { id:'breakfast', emoji:'🥣', label:'Breakfast',   defaultTime:{hour:8,minute:0},  spoken:'eight o\'clock',  hint:'Time for breakfast!' },
+  { id:'school',    emoji:'🏫', label:'School',      defaultTime:{hour:9,minute:0},  spoken:'nine o\'clock',   hint:'Off to school!' },
+  { id:'play',      emoji:'⚽', label:'Play Time',   defaultTime:{hour:4,minute:30}, spoken:'half past four',  hint:'Time to play!' },
+  { id:'dinner',    emoji:'🍽️', label:'Dinner',      defaultTime:{hour:6,minute:0},  spoken:'six o\'clock',    hint:'Dinner is ready!' },
+  { id:'sleep',     emoji:'😴', label:'Bedtime',     defaultTime:{hour:8,minute:30}, spoken:'half past eight', hint:'Time for bed!' },
+];
+
+function startDayInLife() {
+  dayInLifeState = {
+    eventIdx: 0,
+    setHour: 12,
+    setMinute: 0,
+    phase: 'setting',
+    mistakes: 0,
+    completedEvents: [],
+  };
+  renderDayInLife();
+  const ev = DAY_EVENTS[0];
+  if (state.narrationEnabled) {
+    setTimeout(() => speak(`A day in your life! First: ${ev.label}. Set the clock to ${ev.spoken}.`), 400);
+  }
+  if (state.soundEnabled) { sfx.whoosh(); setTimeout(() => sfx.fanfare(), 300); }
+}
+
+function renderDayInLife() {
+  const s = dayInLifeState;
+  const ev = DAY_EVENTS[s.eventIdx];
+  const container = document.getElementById('game-container');
+
+  // Progress dots showing which events are done
+  let progressHtml = '<div style="display:flex;justify-content:center;gap:0.5rem;margin:0.5rem 0;">';
+  DAY_EVENTS.forEach((e, i) => {
+    const done = s.completedEvents.includes(e.id);
+    const current = i === s.eventIdx;
+    const bg = done ? '#22C55E' : current ? '#FBBF24' : '#E5E7EB';
+    const sz = current ? '2rem' : '1.5rem';
+    progressHtml += `<div style="font-size:${sz};background:${bg};border-radius:50%;width:${current?'2.5rem':'2rem'};height:${current?'2.5rem':'2rem'};display:flex;align-items:center;justify-content:center;border:2px solid ${done?'#16A34A':'#D1D5DB'};${current?'animation:pulse-glow 0.8s ease-in-out infinite;':''}">${e.emoji}</div>`;
+  });
+  progressHtml += '</div>';
+
+  container.innerHTML = `<div style="flex:1;display:flex;flex-direction:column;background:linear-gradient(135deg,${getDayBgColor(s.eventIdx)});">
+    <div class="question-banner" style="border-color:#DC2626;background:#FEE2E2;">
+      <p style="color:#991B1B;">📖 A Day in Your Life — Event ${s.eventIdx + 1} of ${DAY_EVENTS.length}: ${ev.emoji} ${ev.label}</p>
+    </div>
+    ${progressHtml}
+    <div style="text-align:center;padding:0.5rem 1rem;background:rgba(255,255,255,0.7);border-radius:0.75rem;margin:0.5rem auto;max-width:28rem;">
+      <p style="font-size:1.25rem;font-weight:bold;color:#7C2D12;">"Set the clock to ${ev.spoken}."</p>
+      <p style="font-size:0.875rem;color:#92400E;margin-top:0.25rem;">${ev.hint}</p>
+    </div>
+    <div class="clock-display" style="background:rgba(255,255,255,0.85);border-radius:1rem;padding:1rem;margin:0.5rem auto;">
+      <div class="clock-svg">${clockSVG(s.setHour, s.setMinute, { color: '#DC2626', size: 220 })}</div>
+      <div style="text-align:center;font-size:1.5rem;font-weight:900;color:#DC2626;margin-top:0.5rem;">${formatDigital(s.setHour, s.setMinute)}</div>
+    </div>
+    <div class="set-clock-controls" style="background:rgba(255,255,255,0.7);border-radius:1rem;padding:0.75rem;margin:0.5rem auto;max-width:28rem;">
+      <div class="set-control-group">
+        <div class="set-control-label" style="color:#7C2D12;">Hour</div>
+        <div class="set-control-value" style="color:#DC2626;">${s.setHour}</div>
+        <div class="set-control-btns">
+          <button class="set-btn set-btn-minus" onclick="adjustDayHour(-1)">−</button>
+          <button class="set-btn set-btn-plus" onclick="adjustDayHour(1)">+</button>
+        </div>
+      </div>
+      <div class="set-control-group">
+        <div class="set-control-label" style="color:#7C2D12;">Minute</div>
+        <div class="set-control-value" style="color:#DC2626;">${String(s.setMinute).padStart(2,'0')}</div>
+        <div class="set-control-btns">
+          <button class="set-btn set-btn-minus" onclick="adjustDayMinute(-5)">−</button>
+          <button class="set-btn set-btn-plus" onclick="adjustDayMinute(5)">+</button>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;margin:0.5rem 0;">
+      <button class="btn btn-green btn-lg" onclick="checkDayInLife()">✓ Check!</button>
+    </div>
+  </div>`;
+}
+
+function getDayBgColor(idx) {
+  // Background shifts with time of day: morning orange, midday blue, evening purple, night dark
+  const colors = [
+    '#FED7AA,#FBBF24',  // wake (sunrise)
+    '#FDE68A,#F59E0B',  // breakfast (morning)
+    '#BFDBFE,#3B82F6',  // school (midday)
+    '#FED7AA,#F97316',  // play (afternoon)
+    '#E9D5FF,#8B5CF6',  // dinner (evening)
+    '#1E293B,#0F172A',  // sleep (night)
+  ];
+  return colors[idx] || '#FEE2E2,#FECACA';
+}
+
+function adjustDayHour(delta) {
+  const s = dayInLifeState;
+  if (state.soundEnabled) sfx.click();
+  s.setHour = ((s.setHour - 1 + delta) % 12 + 12) % 12 + 1;
+  renderDayInLife();
+}
+
+function adjustDayMinute(delta) {
+  const s = dayInLifeState;
+  if (state.soundEnabled) sfx.click();
+  s.setMinute = ((s.setMinute + delta) % 60 + 60) % 60;
+  renderDayInLife();
+}
+
+function checkDayInLife() {
+  const s = dayInLifeState;
+  const ev = DAY_EVENTS[s.eventIdx];
+  if (s.setHour === ev.defaultTime.hour && s.setMinute === ev.defaultTime.minute) {
+    // CORRECT
+    if (state.soundEnabled) { sfx.correct(); sfx.pop(); }
+    s.phase = 'correct';
+    s.completedEvents.push(ev.id);
+    showConfetti(60);
+    showFeedback(`${ev.emoji} ${ev.label}! 🎉`, 'correct');
+    if (state.narrationEnabled) {
+      setTimeout(() => speak(`Yes! ${ev.label} at ${ev.spoken}.`), 400);
+    }
+    // Advance to next event or complete
+    setTimeout(() => {
+      s.eventIdx++;
+      if (s.eventIdx >= DAY_EVENTS.length) {
+        // ALL EVENTS COMPLETE — boss defeated!
+        completeDayInLife();
+      } else {
+        s.setHour = 12;
+        s.setMinute = 0;
+        s.phase = 'setting';
+        renderDayInLife();
+        hideFeedback();
+        const nextEv = DAY_EVENTS[s.eventIdx];
+        if (state.narrationEnabled) {
+          setTimeout(() => speak(`Next: ${nextEv.label}. Set the clock to ${nextEv.spoken}.`), 300);
+        }
+      }
+    }, 1800);
+  } else {
+    // WRONG — character yawns (humor, not penalty)
+    if (state.soundEnabled) sfx.incorrect();
+    s.mistakes++;
+    s.phase = 'wrong';
+    const yawnMsgs = [
+      `Yawn! Too ${s.setHour < ev.defaultTime.hour ? 'early' : 'late'} for ${ev.label}! 😴`,
+      `Hmm, not quite ${ev.label} time! 🤔`,
+      `Try again! ${ev.hint} 💭`,
+    ];
+    const msg = yawnMsgs[s.mistakes % yawnMsgs.length];
+    showFeedback(msg, 'wrong');
+    if (state.narrationEnabled) {
+      setTimeout(() => speak(`Not quite. Set the clock to ${ev.spoken} for ${ev.label}.`), 400);
+    }
+    setTimeout(() => {
+      s.phase = 'setting';
+      hideFeedback();
+    }, 2000);
+  }
+}
+
+function completeDayInLife() {
+  if (state.soundEnabled) { sfx.fanfare(); setTimeout(() => sfx.fanfare(), 400); setTimeout(() => sfx.fanfare(), 800); }
+  showConfetti(200);
+  showFeedback('A PERFECT DAY! 🌟', 'correct');
+  if (state.narrationEnabled) {
+    setTimeout(() => speak('You did it! A perfect day, from morning to night. Amazing!'), 500);
+  }
+  const stars = s_mistakesToStars(dayInLifeState.mistakes);
+  const score = Math.max(50, 100 - dayInLifeState.mistakes * 10);
+  setTimeout(() => completeLevel(stars, score), 3500);
+}
+
+// Helper: convert mistakes to stars (3 if 0 mistakes, 2 if ≤2, 1 otherwise)
+function s_mistakesToStars(m) { return m === 0 ? 3 : m <= 2 ? 2 : 1; }
 
 // ============================================================
 // MODE 3: LISTEN & MATCH
