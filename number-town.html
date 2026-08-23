@@ -175,15 +175,16 @@ body { font-family:'Comic Sans MS','Chalkboard SE','Comic Neue','Nunito',system-
 <div id="confetti-container" class="confetti-container hidden"></div>
 <script>
 // GAME DATA
-const NUM_COLORS = ['#EF4444','#F97316','#FBBF24','#84CC16','#22C55E','#06B6D4','#3B82F6','#8B5CF6','#EC4899','#A855F7','#14B8A6','#F59E0B'];
-const NUM_WORDS = ['one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve'];
-const KEYWORDS = [1,2,3,4,5,6,7,8,9,10,11,12];
+const NUM_COLORS = ['#EF4444','#F97316','#FBBF24','#84CC16','#22C55E','#06B6D4','#3B82F6','#8B5CF6','#EC4899','#A855F7','#14B8A6','#F59E0B','#EF4444','#F97316','#FBBF24','#84CC16','#22C55E','#06B6D4','#3B82F6','#8B5CF6'];
+const NUM_WORDS = ['one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty'];
+const KEYWORDS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
 const CHARACTERS=[{id:'detective',name:'Detective Owl',emoji:'🦉'},{id:'explorer',name:'Explorer Fox',emoji:'🦊'},{id:'scout',name:'Scout Bunny',emoji:'🐰'},{id:'captain',name:'Captain Bear',emoji:'🐻'}];
 const WORLDS=[
   {id:'tiny',name:'Tiny Numbers',emoji:'1️⃣',color:'#EF4444',desc:'Numbers 1-3'},
   {id:'small',name:'Small Numbers',emoji:'3️⃣',color:'#F97316',desc:'Numbers 1-6'},
   {id:'big',name:'Big Numbers',emoji:'6️⃣',color:'#3B82F6',desc:'Numbers 1-9'},
   {id:'master',name:'Master Numbers',emoji:'1️⃣2️⃣',color:'#8B5CF6',desc:'Numbers 1-12'},
+  {id:'teen',name:'Teen Numbers',emoji:'1️⃣3️⃣',color:'#0D9488',desc:'Numbers 13-20'},
   {id:'boss',name:'BOSS WORLD!',emoji:'🦈',color:'#DC2626',desc:'Defeat the Number Shark!'},
 ];
 const LEVELS=[
@@ -219,6 +220,15 @@ const LEVELS=[
   {id:'ma-6',worldId:'master',index:5,title:'Master Numbers',mode:'readNumber',maxNum:12,ageGroup:'5-9'},
   {id:'ma-7',worldId:'master',index:6,title:'Master Detective',mode:'challenge',maxNum:12,ageGroup:'6-9'},
   {id:'ma-8',worldId:'master',index:7,title:'Grand Master',mode:'challenge',maxNum:12,ageGroup:'6-9'},
+  // TEEN WORLD - Numbers 13-20
+  {id:'te-1',worldId:'teen',index:0,title:'Count 13-20',mode:'countObjects',maxNum:20,ageGroup:'5-9'},
+  {id:'te-2',worldId:'teen',index:1,title:'Listen 13-20',mode:'listenMatch',maxNum:20,ageGroup:'5-9'},
+  {id:'te-3',worldId:'teen',index:2,title:'Teen Memory',mode:'memoryMatch',maxNum:20,ageGroup:'6-9'},
+  {id:'te-4',worldId:'teen',index:3,title:'Teen Names',mode:'nameNumber',maxNum:20,ageGroup:'6-9'},
+  {id:'te-5',worldId:'teen',index:4,title:'Teen Sentences',mode:'sentenceBuilder',maxNum:20,ageGroup:'6-9'},
+  {id:'te-6',worldId:'teen',index:5,title:'Teen Numbers',mode:'readNumber',maxNum:20,ageGroup:'6-9'},
+  {id:'te-7',worldId:'teen',index:6,title:'Teen Detective',mode:'challenge',maxNum:20,ageGroup:'7-9'},
+  {id:'te-8',worldId:'teen',index:7,title:'Teen Master',mode:'challenge',maxNum:20,ageGroup:'7-9'},
   // BOSS WORLD - Number Shark Battle (inspired by Mido's POP game)
   {id:'bo-1',worldId:'boss',index:0,title:'🦈 Shark Battle Round 1',mode:'sharkBattle',maxNum:12,ageGroup:'3-9'},
   {id:'bo-2',worldId:'boss',index:1,title:'🦈 Shark Battle Round 2',mode:'sharkBattle',maxNum:12,ageGroup:'3-9'},
@@ -250,7 +260,7 @@ function loadState(){try{const s=JSON.parse(localStorage.getItem('number-town-sa
 function saveState(){try{localStorage.setItem('number-town-save',JSON.stringify({characterId:state.characterId,soundEnabled:state.soundEnabled,narrationEnabled:state.narrationEnabled,progress:state.progress}));}catch(e){}}
 function totalStars(){return Object.values(state.progress).reduce((s,p)=>s+(p.stars||0),0);}
 function isLevelUnlocked(id,wid){const ls=WORLD_LEVEL_ORDER[wid];const i=ls.indexOf(id);if(i<=0)return true;return state.progress[ls[i-1]]?.completed||false;}
-function isWorldUnlocked(wid){const o=['tiny','small','big','master','boss'];const i=o.indexOf(wid);if(i<=0)return true;return WORLD_LEVEL_ORDER[o[i-1]].every(id=>state.progress[id]?.completed);}
+function isWorldUnlocked(wid){const o=['tiny','small','big','master','teen','boss'];const i=o.indexOf(wid);if(i<=0)return true;return WORLD_LEVEL_ORDER[o[i-1]].every(id=>state.progress[id]?.completed);}
 // AUDIO
 let audioCtx=null;function getAudioCtx(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return null;}}if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});return audioCtx;}
 function playTone(f,d,t,g,st){t=t||'sine';g=g||0.15;st=st||0;const c=getAudioCtx();if(!c)return;const o=c.createOscillator();const ga=c.createGain();o.type=t;o.frequency.value=f;const n=c.currentTime+st;ga.gain.setValueAtTime(0,n);ga.gain.linearRampToValueAtTime(g,n+0.01);ga.gain.exponentialRampToValueAtTime(0.001,n+d);o.connect(ga);ga.connect(c.destination);o.start(n);o.stop(n+d+0.05);}

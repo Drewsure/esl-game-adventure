@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>My Body! - ESL Body Parts Game</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body { font-family:'Comic Sans MS','Chalkboard SE','Comic Neue','Nunito',system-ui,sans-serif; overscroll-behavior:none; -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; background:#E0F2FE; color:#1F2937; overflow-x:hidden; }
+.screen { display:none; min-height:100vh; width:100%; }
+.screen.active { display:flex; flex-direction:column; }
+@keyframes bounce-in { 0%{transform:scale(0) translateY(20px);opacity:0;} 60%{transform:scale(1.1) translateY(-5px);opacity:1;} 100%{transform:scale(1) translateY(0);opacity:1;} }
+@keyframes pulse-glow { 0%,100%{box-shadow:0 0 8px rgba(251,191,36,0.5);} 50%{box-shadow:0 0 20px rgba(251,191,36,1);} }
+@keyframes float { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+@keyframes wiggle { 0%,100%{transform:rotate(0deg);} 25%{transform:rotate(-3deg);} 75%{transform:rotate(3deg);} }
+#start-screen { background:linear-gradient(135deg,#06B6D4,#3B82F6,#8B5CF6); align-items:center; justify-content:center; padding:1rem; position:relative; overflow:hidden; }
+.start-title { font-size:clamp(2rem,6vw,3.5rem); color:white; text-shadow:0 4px 0 rgba(0,0,0,0.3),0 8px 20px rgba(0,0,0,0.4); text-align:center; font-weight:900; line-height:1; margin-bottom:0.5rem; animation:bounce-in 0.6s ease-out; }
+.start-subtitle { color:rgba(255,255,255,0.9); text-align:center; font-size:1.125rem; font-weight:bold; margin-bottom:1rem; text-shadow:0 2px 4px rgba(0,0,0,0.3); animation:bounce-in 0.6s ease-out 0.2s backwards; }
+.flashcard-row { display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center; max-width:36rem; margin:0 auto 1rem; }
+.keyword-pill { padding:0.5rem 0.875rem; border-radius:9999px; font-weight:bold; color:white; border:3px solid rgba(255,255,255,0.8); display:flex; align-items:center; gap:0.375rem; box-shadow:0 4px 8px rgba(0,0,0,0.2); cursor:pointer; transition:all 0.2s; opacity:0; transform:scale(0); }
+.keyword-pill.flashcard-in { animation:bounce-in 0.4s ease-out forwards; }
+.keyword-pill:hover { transform:scale(1.1); }
+.keyword-pill.speaking { box-shadow:0 0 16px rgba(255,255,255,0.8); transform:scale(1.15); }
+.char-section { text-align:center; margin-bottom:1rem; }
+.char-section p { color:white; font-size:1rem; font-weight:bold; margin-bottom:0.5rem; }
+.char-row { display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap; }
+.char-btn { padding:0.5rem 1rem; border-radius:9999px; background:rgba(255,255,255,0.2); backdrop-filter:blur(8px); border:2px solid rgba(255,255,255,0.4); color:white; font-weight:bold; font-size:1rem; cursor:pointer; font-family:inherit; transition:all 0.2s; display:flex; align-items:center; gap:0.375rem; }
+.char-btn:hover, .char-btn.selected { background:rgba(255,255,255,0.4); border-color:white; transform:scale(1.05); }
+.settings-row { position:absolute; top:1rem; right:1rem; display:flex; gap:0.5rem; z-index:20; }
+.settings-btn { width:3rem; height:3rem; border-radius:50%; background:rgba(255,255,255,0.3); backdrop-filter:blur(8px); border:2px solid rgba(255,255,255,0.5); font-size:1.5rem; cursor:pointer; display:flex; align-items:center; justify-content:center; font-family:inherit; }
+.play-btn { padding:1rem 3rem; border-radius:9999px; background:#FBBF24; color:#7C2D12; font-size:1.5rem; font-weight:900; border:4px solid white; cursor:pointer; font-family:inherit; box-shadow:0 6px 0 #B45309, 0 10px 20px rgba(0,0,0,0.3); transition:all 0.2s; animation:bounce-in 0.6s ease-out 0.8s backwards; }
+.play-btn:hover { transform:translateY(-2px); box-shadow:0 8px 0 #B45309, 0 12px 24px rgba(0,0,0,0.3); }
+.play-btn:active { transform:translateY(4px); box-shadow:0 2px 0 #B45309, 0 4px 8px rgba(0,0,0,0.3); }
+.topbar { position:sticky; top:0; z-index:30; background:rgba(255,255,255,0.95); border-bottom:3px solid #E5E7EB; padding:0.5rem 1rem; display:flex; align-items:center; justify-content:space-between; }
+.topbar-btn { padding:0.375rem 1rem; border-radius:9999px; background:white; border:2px solid #D1D5DB; font-weight:bold; color:#374151; cursor:pointer; font-size:0.875rem; font-family:inherit; }
+.topbar-btn:hover { background:#F3F4F6; }
+.topbar-info { font-weight:bold; color:#374151; font-size:0.875rem; }
+.star-badge { display:flex; align-items:center; gap:0.25rem; background:#FEF3C7; border:2px solid #FBBF24; padding:0.25rem 0.75rem; border-radius:9999px; font-weight:bold; color:#92400E; }
+.map-container { flex:1; overflow-y:auto; padding:1rem; max-width:42rem; margin:0 auto; width:100%; }
+.world-card { background:white; border-radius:1rem; overflow:hidden; margin-bottom:1rem; box-shadow:0 4px 12px rgba(0,0,0,0.1); border:3px solid #E5E7EB; }
+.world-header { padding:1rem; display:flex; align-items:center; gap:0.75rem; color:white; }
+.world-emoji { font-size:2rem; }
+.world-name { font-size:1.25rem; font-weight:900; }
+.world-desc { font-size:0.75rem; opacity:0.9; }
+.world-stars { margin-left:auto; background:rgba(255,255,255,0.2); padding:0.25rem 0.75rem; border-radius:9999px; font-size:0.875rem; }
+.levels-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; padding:0.75rem; }
+@media(max-width:400px) { .levels-grid { grid-template-columns:repeat(2,1fr); } }
+.level-btn { background:#F9FAFB; border:2px solid #E5E7EB; border-radius:0.5rem; padding:0.5rem; cursor:pointer; font-family:inherit; text-align:center; transition:all 0.2s; position:relative; }
+.level-btn:hover:not(:disabled) { background:#F3F4F6; transform:translateY(-2px); }
+.level-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.level-num { font-size:0.75rem; font-weight:bold; color:#6B7280; }
+.level-icon { font-size:1.5rem; margin:0.25rem 0; }
+.level-title { font-size:0.625rem; color:#374151; line-height:1.2; }
+.level-stars { font-size:0.625rem; margin-top:0.25rem; }
+.level-stars .dim { opacity:0.3; }
+.level-check { position:absolute; top:2px; right:4px; color:#22C55E; font-weight:bold; }
+.locked-overlay { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem; color:#9CA3AF; }
+.locked-overlay .lock { font-size:3rem; }
+#game-container { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
+.question-banner { background:white; border:3px solid #3B82F6; border-radius:0.75rem; padding:0.75rem 1rem; margin:0.5rem; text-align:center; }
+.question-banner p { font-size:1.125rem; font-weight:bold; color:#1F2937; }
+.choices-panel { background:white; border:3px solid #E5E7EB; border-radius:0.75rem; padding:0.75rem; margin:0.5rem; }
+.choices-title { font-size:0.875rem; font-weight:bold; color:#6B7280; margin-bottom:0.5rem; text-align:center; }
+.choice-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:0.5rem; max-width:24rem; margin:0 auto; }
+.choice-btn { background:white; border:3px solid #D1D5DB; border-radius:0.75rem; padding:0.75rem; cursor:pointer; font-family:inherit; text-align:center; transition:all 0.2s; font-size:1rem; font-weight:bold; }
+.choice-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 4px 8px rgba(0,0,0,0.1); }
+.choice-btn:disabled { opacity:0.5; cursor:default; }
+.choice-btn.correct { border-color:#22C55E; background:#D1FAE5; }
+.choice-btn.wrong { border-color:#EF4444; background:#FEE2E2; }
+.body-display { display:flex; justify-content:center; margin:0.5rem 0; position:relative; }
+.progress-row { display:flex; align-items:center; gap:0.5rem; margin:0.5rem; }
+.progress-bar { flex:1; height:0.75rem; background:#E5E7EB; border-radius:9999px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:9999px; transition:width 0.3s; }
+.feedback-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; z-index:100; pointer-events:none; }
+.feedback-overlay.hidden { display:none; }
+.feedback-msg { background:white; padding:1.5rem 2rem; border-radius:1rem; font-size:1.5rem; font-weight:900; box-shadow:0 10px 30px rgba(0,0,0,0.3); animation:bounce-in 0.3s ease-out; }
+.feedback-correct { color:#16A34A; border:4px solid #22C55E; }
+.feedback-wrong { color:#DC2626; border:4px solid #EF4444; }
+.confetti-container { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:99; overflow:hidden; }
+.confetti-container.hidden { display:none; }
+.confetti-piece { position:absolute; animation:confetti-fall 3s linear forwards; }
+@keyframes confetti-fall { 0%{transform:translateY(-100px) rotate(0deg);opacity:1;} 100%{transform:translateY(100vh) rotate(720deg);opacity:0;} }
+.hover-speak { cursor:pointer; }
+.hover-speak.speaking { box-shadow:0 0 12px rgba(251,191,36,0.6); }
+.btn { padding:0.5rem 1rem; border-radius:9999px; border:none; cursor:pointer; font-family:inherit; font-weight:bold; transition:all 0.2s; }
+.btn:active { transform:scale(0.95); }
+.btn-green { background:#22C55E; color:white; }
+.btn-blue { background:#3B82F6; color:white; }
+.btn-yellow { background:#FBBF24; color:#7C2D12; }
+.btn-gray { background:#6B7280; color:white; }
+.btn-lg { padding:0.75rem 2rem; font-size:1.125rem; }
+.btn-md { padding:0.5rem 1.25rem; font-size:0.875rem; }
+.btn-sm { padding:0.375rem 0.875rem; font-size:0.75rem; }
+.intro-card { background:white; border-radius:1.5rem; padding:1.5rem; max-width:28rem; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+.intro-title { font-size:1.5rem; font-weight:900; text-align:center; margin-bottom:0.5rem; }
+.intro-age { font-size:0.875rem; color:#6B7280; text-align:center; margin-bottom:0.5rem; }
+.intro-question { background:#E0F2FE; border:2px solid #3B82F6; border-radius:0.75rem; padding:1rem; margin:0.5rem 0; text-align:center; font-size:1.125rem; }
+.intro-hint { font-size:0.875rem; color:#6B7280; text-align:center; margin:0.5rem 0; }
+.intro-buttons { display:flex; gap:0.5rem; justify-content:center; margin-top:0.75rem; }
+.result-card { background:white; border-radius:1.5rem; padding:2rem; max-width:28rem; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+.result-message { font-size:2rem; font-weight:900; margin-bottom:0.5rem; }
+.result-stars { display:flex; justify-content:center; gap:0.25rem; margin:0.5rem 0; }
+.result-star { width:3rem; height:3rem; }
+.result-answer { font-size:1.125rem; color:#374151; margin:0.5rem 0; }
+.result-score { font-size:1rem; color:#6B7280; margin:0.5rem 0; }
+.result-buttons { display:flex; gap:0.5rem; justify-content:center; margin-top:1rem; flex-wrap:wrap; }
+.body-part-highlight { animation:pulse-glow 0.5s ease-in-out infinite; cursor:pointer; }
+.body-part-target { filter:drop-shadow(0 0 8px #FBBF24); }
+</style>
+</head>
+<body>
+
+<div id="start-screen" class="screen active">
+  <div class="settings-row">
+    <button class="settings-btn" id="sound-btn" onclick="toggleSound()">🔊</button>
+    <button class="settings-btn" id="narration-btn" onclick="toggleNarration()">🗣️</button>
+  </div>
+  <h1 class="start-title">🧒 My Body! 🦶</h1>
+  <p class="start-subtitle">Learn the parts of your body!</p>
+  <div class="flashcard-row" id="flashcard-row"></div>
+  <div class="char-section">
+    <p>Pick your friend!</p>
+    <div class="char-row" id="char-row"></div>
+  </div>
+  <button class="play-btn" onclick="goToMap()">PLAY! 🚀</button>
+</div>
+
+<div id="map-screen" class="screen">
+  <div class="topbar">
+    <button class="topbar-btn" onclick="goToStart()">← Home</button>
+    <div class="topbar-info">My Body!</div>
+    <div class="star-badge"><span>⭐</span><span id="map-total-stars">0</span></div>
+  </div>
+  <div class="map-container" id="map-container"></div>
+</div>
+
+<div id="game-screen" class="screen">
+  <div class="topbar">
+    <button class="topbar-btn" onclick="goToMap()">← Map</button>
+    <div class="topbar-info" id="game-level-info"></div>
+    <div class="star-badge"><span>⭐</span><span id="game-total-stars">0</span></div>
+  </div>
+  <div id="game-container"></div>
+</div>
+
+<div id="feedback-overlay" class="feedback-overlay hidden">
+  <div class="feedback-msg" id="feedback-msg"></div>
+</div>
+<div id="confetti-container" class="confetti-container hidden"></div>
+
+<script>
+// ============================================================
+// DATA: Body Parts
+// ============================================================
+const BODY_PARTS = {
+  'head':     { label:'head',     emoji:'😀', color:'#FBBF24', spoken:'head' },
+  'shoulders':{ label:'shoulders',emoji:'🤷', color:'#3B82F6', spoken:'shoulders' },
+  'knees':    { label:'knees',    emoji:'🦵', color:'#22C55E', spoken:'knees' },
+  'toes':     { label:'toes',     emoji:'🦶', color:'#A855F7', spoken:'toes' },
+  'eyes':     { label:'eyes',     emoji:'👀', color:'#06B6D4', spoken:'eyes' },
+  'ears':     { label:'ears',     emoji:'👂', color:'#EC4899', spoken:'ears' },
+  'mouth':    { label:'mouth',    emoji:'👄', color:'#EF4444', spoken:'mouth' },
+  'nose':     { label:'nose',     emoji:'👃', color:'#F97316', spoken:'nose' },
+};
+
+// SVG of a kid's body with highlighted body parts
+function bodySVG(highlightPart) {
+  var parts = {
+    head:      highlightPart === 'head'      ? 'filter:drop-shadow(0 0 6px #FBBF24);' : '',
+    eyes:      highlightPart === 'eyes'      ? 'filter:drop-shadow(0 0 6px #06B6D4);' : '',
+    ears:      highlightPart === 'ears'      ? 'filter:drop-shadow(0 0 6px #EC4899);' : '',
+    nose:      highlightPart === 'nose'      ? 'filter:drop-shadow(0 0 6px #F97316);' : '',
+    mouth:     highlightPart === 'mouth'     ? 'filter:drop-shadow(0 0 6px #EF4444);' : '',
+    shoulders: highlightPart === 'shoulders' ? 'filter:drop-shadow(0 0 6px #3B82F6);' : '',
+    knees:     highlightPart === 'knees'     ? 'filter:drop-shadow(0 0 6px #22C55E);' : '',
+    toes:      highlightPart === 'toes'      ? 'filter:drop-shadow(0 0 6px #A855F7);' : '',
+  };
+  return '<svg viewBox="0 0 200 300" width="100%" height="100%" style="max-width:200px;">'
+    // Head
+    + '<g style="'+parts.head+';cursor:pointer;" onclick="bodyPartTap(\'head\')">'
+    + '<circle cx="100" cy="50" r="35" fill="#FDE68A" stroke="#92400E" stroke-width="3"/>'
+    // Hair
+    + '<path d="M 70 30 Q 80 15 100 18 Q 120 15 130 30 Q 125 35 100 33 Q 75 35 70 30 Z" fill="#92400E" stroke="#451A03" stroke-width="2"/>'
+    + '</g>'
+    // Eyes
+    + '<g style="'+parts.eyes+';cursor:pointer;" onclick="bodyPartTap(\'eyes\')">'
+    + '<circle cx="88" cy="48" r="5" fill="white" stroke="#1F2937" stroke-width="1.5"/>'
+    + '<circle cx="112" cy="48" r="5" fill="white" stroke="#1F2937" stroke-width="1.5"/>'
+    + '<circle cx="89" cy="49" r="2.5" fill="#1F2937"/>'
+    + '<circle cx="113" cy="49" r="2.5" fill="#1F2937"/>'
+    + '</g>'
+    // Ears
+    + '<g style="'+parts.ears+';cursor:pointer;" onclick="bodyPartTap(\'ears\')">'
+    + '<ellipse cx="65" cy="52" rx="6" ry="10" fill="#FDE68A" stroke="#92400E" stroke-width="2"/>'
+    + '<ellipse cx="135" cy="52" rx="6" ry="10" fill="#FDE68A" stroke="#92400E" stroke-width="2"/>'
+    + '</g>'
+    // Nose
+    + '<g style="'+parts.nose+';cursor:pointer;" onclick="bodyPartTap(\'nose\')">'
+    + '<path d="M 96 55 Q 100 62 104 55 Q 102 58 100 58 Q 98 58 96 55 Z" fill="#FBBF24" stroke="#92400E" stroke-width="1.5"/>'
+    + '</g>'
+    // Mouth
+    + '<g style="'+parts.mouth+';cursor:pointer;" onclick="bodyPartTap(\'mouth\')">'
+    + '<path d="M 90 68 Q 100 75 110 68" stroke="#EF4444" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    + '</g>'
+    // Neck
+    + '<rect x="93" y="83" width="14" height="12" fill="#FDE68A" stroke="#92400E" stroke-width="2"/>'
+    // Shoulders/Torso
+    + '<g style="'+parts.shoulders+';cursor:pointer;" onclick="bodyPartTap(\'shoulders\')">'
+    + '<path d="M 65 100 Q 60 95 55 105 L 55 160 Q 55 170 65 170 L 135 170 Q 145 170 145 160 L 145 105 Q 140 95 135 100 Z" fill="#3B82F6" stroke="#1E3A8A" stroke-width="3"/>'
+    + '<path d="M 55 105 L 45 110 L 50 125 L 60 120 Z" fill="#3B82F6" stroke="#1E3A8A" stroke-width="2"/>'
+    + '<path d="M 145 105 L 155 110 L 150 125 L 140 120 Z" fill="#3B82F6" stroke="#1E3A8A" stroke-width="2"/>'
+    + '</g>'
+    // Arms
+    + '<rect x="40" y="120" width="15" height="60" fill="#FDE68A" stroke="#92400E" stroke-width="2.5" rx="5"/>'
+    + '<rect x="145" y="120" width="15" height="60" fill="#FDE68A" stroke="#92400E" stroke-width="2.5" rx="5"/>'
+    // Hands
+    + '<circle cx="47" cy="185" r="10" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/>'
+    + '<circle cx="152" cy="185" r="10" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/>'
+    // Legs
+    + '<rect x="75" y="170" width="20" height="80" fill="#1E3A8A" stroke="#0F172A" stroke-width="2.5" rx="3"/>'
+    + '<rect x="105" y="170" width="20" height="80" fill="#1E3A8A" stroke="#0F172A" stroke-width="2.5" rx="3"/>'
+    // Knees
+    + '<g style="'+parts.knees+';cursor:pointer;" onclick="bodyPartTap(\'knees\')">'
+    + '<circle cx="85" cy="210" r="9" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/>'
+    + '<circle cx="115" cy="210" r="9" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/>'
+    + '</g>'
+    // Feet/Toes
+    + '<g style="'+parts.toes+';cursor:pointer;" onclick="bodyPartTap(\'toes\')">'
+    + '<ellipse cx="85" cy="265" rx="18" ry="10" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/>'
+    + '<ellipse cx="115" cy="265" rx="18" ry="10" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/>'
+    + '<circle cx="78" cy="260" r="2" fill="#92400E"/>'
+    + '<circle cx="85" cy="258" r="2" fill="#92400E"/>'
+    + '<circle cx="92" cy="260" r="2" fill="#92400E"/>'
+    + '<circle cx="108" cy="260" r="2" fill="#92400E"/>'
+    + '<circle cx="115" cy="258" r="2" fill="#92400E"/>'
+    + '<circle cx="122" cy="260" r="2" fill="#92400E"/>'
+    + '</g>'
+  + '</svg>';
+}
+
+// Small body part SVG for choices
+function partSVG(part) {
+  var svgs = {
+    'head': '<svg viewBox="0 0 60 60" width="100%" height="100%"><circle cx="30" cy="30" r="22" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/><path d="M 12 18 Q 18 8 30 10 Q 42 8 48 18 Q 44 22 30 20 Q 16 22 12 18 Z" fill="#92400E" stroke="#451A03" stroke-width="1.5"/><circle cx="24" cy="30" r="3" fill="#1F2937"/><circle cx="36" cy="30" r="3" fill="#1F2937"/><path d="M 26 40 Q 30 44 34 40" stroke="#EF4444" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    'shoulders': '<svg viewBox="0 0 80 80" width="100%" height="100%"><rect x="15" y="10" width="8" height="30" fill="#FDE68A" stroke="#92400E" stroke-width="2" rx="3"/><rect x="57" y="10" width="8" height="30" fill="#FDE68A" stroke="#92400E" stroke-width="2" rx="3"/><path d="M 15 20 Q 20 15 40 15 Q 60 15 65 20 L 65 50 L 15 50 Z" fill="#3B82F6" stroke="#1E3A8A" stroke-width="3"/><circle cx="20" cy="25" r="6" fill="#1E3A8A" opacity="0.3"/><circle cx="60" cy="25" r="6" fill="#1E3A8A" opacity="0.3"/><text x="40" y="45" text-anchor="middle" font-size="8" fill="white" font-weight="bold">SHOULDERS</text></svg>',
+    'knees': '<svg viewBox="0 0 80 80" width="100%" height="100%"><rect x="25" y="5" width="12" height="25" fill="#1E3A8A" stroke="#0F172A" stroke-width="2.5" rx="3"/><rect x="43" y="5" width="12" height="25" fill="#1E3A8A" stroke="#0F172A" stroke-width="2.5" rx="3"/><circle cx="31" cy="35" r="10" fill="#FDE68A" stroke="#92400E" stroke-width="3"/><circle cx="49" cy="35" r="10" fill="#FDE68A" stroke="#92400E" stroke-width="3"/><rect x="25" y="45" width="12" height="30" fill="#1E3A8A" stroke="#0F172A" stroke-width="2.5" rx="3"/><rect x="43" y="45" width="12" height="30" fill="#1E3A8A" stroke="#0F172A" stroke-width="2.5" rx="3"/><text x="40" y="75" text-anchor="middle" font-size="7" fill="#92400E" font-weight="bold">KNEES</text></svg>',
+    'toes': '<svg viewBox="0 0 80 80" width="100%" height="100%"><ellipse cx="25" cy="50" rx="18" ry="12" fill="#FDE68A" stroke="#92400E" stroke-width="3"/><ellipse cx="55" cy="50" rx="18" ry="12" fill="#FDE68A" stroke="#92400E" stroke-width="3"/><circle cx="16" cy="42" r="4" fill="#92400E"/><circle cx="24" cy="40" r="4" fill="#92400E"/><circle cx="32" cy="42" r="4" fill="#92400E"/><circle cx="46" cy="42" r="4" fill="#92400E"/><circle cx="55" cy="40" r="4" fill="#92400E"/><circle cx="64" cy="42" r="4" fill="#92400E"/><text x="40" y="72" text-anchor="middle" font-size="7" fill="#92400E" font-weight="bold">TOES</text></svg>',
+    'eyes': '<svg viewBox="0 0 60 60" width="100%" height="100%"><circle cx="18" cy="30" r="10" fill="white" stroke="#1F2937" stroke-width="2.5"/><circle cx="42" cy="30" r="10" fill="white" stroke="#1F2937" stroke-width="2.5"/><circle cx="19" cy="31" r="5" fill="#1F2937"/><circle cx="43" cy="31" r="5" fill="#1F2937"/><circle cx="20" cy="29" r="1.5" fill="white"/><circle cx="44" cy="29" r="1.5" fill="white"/></svg>',
+    'ears': '<svg viewBox="0 0 60 60" width="100%" height="100%"><ellipse cx="20" cy="30" rx="8" ry="14" fill="#FDE68A" stroke="#92400E" stroke-width="2.5" transform="rotate(-10 20 30)"/><ellipse cx="40" cy="30" rx="8" ry="14" fill="#FDE68A" stroke="#92400E" stroke-width="2.5" transform="rotate(10 40 30)"/><path d="M 17 28 Q 20 32 17 36" stroke="#92400E" stroke-width="1.5" fill="none"/><path d="M 43 28 Q 40 32 43 36" stroke="#92400E" stroke-width="1.5" fill="none"/></svg>',
+    'mouth': '<svg viewBox="0 0 80 80" width="100%" height="100%"><ellipse cx="40" cy="40" rx="25" ry="15" fill="#FCA5A5" stroke="#EF4444" stroke-width="3"/><path d="M 20 35 Q 40 55 60 35" stroke="#EF4444" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="28" y="38" width="5" height="8" fill="white" stroke="#EF4444" stroke-width="1"/><rect x="35" y="38" width="5" height="8" fill="white" stroke="#EF4444" stroke-width="1"/><rect x="42" y="38" width="5" height="8" fill="white" stroke="#EF4444" stroke-width="1"/><rect x="49" y="38" width="5" height="8" fill="#white" stroke="#EF4444" stroke-width="1"/><text x="40" y="70" text-anchor="middle" font-size="7" fill="#EF4444" font-weight="bold">MOUTH</text></svg>',
+    'nose': '<svg viewBox="0 0 80 80" width="100%" height="100%"><path d="M 35 10 Q 45 40 50 10 Q 48 35 40 35 Q 32 35 35 10 Z" fill="#FBBF24" stroke="#92400E" stroke-width="3"/><circle cx="33" cy="38" r="4" fill="#92400E"/><circle cx="47" cy="38" r="4" fill="#92400E"/><text x="40" y="70" text-anchor="middle" font-size="7" fill="#92400E" font-weight="bold">NOSE</text></svg>',
+  };
+  return svgs[part] || svgs.head;
+}
+
+const CHARACTERS=[
+  {id:'detective',name:'Detective Owl',emoji:'🦉'},
+  {id:'explorer',name:'Explorer Fox',emoji:'🦊'},
+  {id:'scout',name:'Scout Bunny',emoji:'🐰'},
+  {id:'captain',name:'Captain Bear',emoji:'🐻'},
+];
+
+const WORLDS=[
+  {id:'face',     name:'Face World',    emoji:'😀', color:'#FBBF24', desc:'Eyes, ears, mouth, nose!'},
+  {id:'body',     name:'Body World',    emoji:'🧒', color:'#3B82F6', desc:'Head, shoulders, knees, toes!'},
+  {id:'song',     name:'Song World',    emoji:'🎵', color:'#22C55E', desc:'Sing and point!'},
+  {id:'mixed',    name:'Mixed World',   emoji:'🎯', color:'#8B5CF6', desc:'All body parts!'},
+  {id:'boss',     name:'Body Quiz!',    emoji:'🏆', color:'#DC2626', desc:'The ultimate body test!'},
+];
+
+const WORLD_LEVEL_ORDER={
+  face:['fa-1','fa-2','fa-3','fa-4','fa-5','fa-6','fa-7','fa-8'],
+  body:['bo-1','bo-2','bo-3','bo-4','bo-5','bo-6','bo-7','bo-8'],
+  song:['so-1','so-2','so-3','so-4','so-5','so-6','so-7','so-8'],
+  mixed:['mi-1','mi-2','mi-3','mi-4','mi-5','mi-6','mi-7','mi-8'],
+  boss:['bs-1'],
+};
+
+const LEVELS=[
+  // FACE WORLD - eyes, ears, mouth, nose
+  {id:'fa-1',worldId:'face',index:0,title:'Touch Your Eyes',mode:'touchBody',target:'eyes',ageGroup:'3-5'},
+  {id:'fa-2',worldId:'face',index:1,title:'Listen to Face',mode:'listenMatch',target:null,parts:['eyes','ears','mouth','nose'],ageGroup:'4-7'},
+  {id:'fa-3',worldId:'face',index:2,title:'Face Memory',mode:'memoryMatch',target:null,parts:['eyes','ears','mouth','nose'],ageGroup:'4-7'},
+  {id:'fa-4',worldId:'face',index:3,title:'Touch Your Nose',mode:'touchBody',target:'nose',ageGroup:'3-5'},
+  {id:'fa-5',worldId:'face',index:4,title:'Face Sentences',mode:'sentenceBuilder',target:'eyes',ageGroup:'5-9'},
+  {id:'fa-6',worldId:'face',index:5,title:'Touch Your Ears',mode:'touchBody',target:'ears',ageGroup:'3-5'},
+  {id:'fa-7',worldId:'face',index:6,title:'Face Detective',mode:'challenge',target:null,parts:['eyes','ears','mouth','nose'],ageGroup:'6-9'},
+  {id:'fa-8',worldId:'face',index:7,title:'Face Master',mode:'challenge',target:null,parts:['eyes','ears','mouth','nose'],ageGroup:'6-9'},
+  // BODY WORLD - head, shoulders, knees, toes
+  {id:'bo-1',worldId:'body',index:0,title:'Touch Your Head',mode:'touchBody',target:'head',ageGroup:'3-5'},
+  {id:'bo-2',worldId:'body',index:1,title:'Listen to Body',mode:'listenMatch',target:null,parts:['head','shoulders','knees','toes'],ageGroup:'4-7'},
+  {id:'bo-3',worldId:'body',index:2,title:'Body Memory',mode:'memoryMatch',target:null,parts:['head','shoulders','knees','toes'],ageGroup:'4-7'},
+  {id:'bo-4',worldId:'body',index:3,title:'Touch Your Shoulders',mode:'touchBody',target:'shoulders',ageGroup:'3-5'},
+  {id:'bo-5',worldId:'body',index:4,title:'Body Sentences',mode:'sentenceBuilder',target:'head',ageGroup:'5-9'},
+  {id:'bo-6',worldId:'body',index:5,title:'Touch Your Knees',mode:'touchBody',target:'knees',ageGroup:'3-5'},
+  {id:'bo-7',worldId:'body',index:6,title:'Body Detective',mode:'challenge',target:null,parts:['head','shoulders','knees','toes'],ageGroup:'6-9'},
+  {id:'bo-8',worldId:'body',index:7,title:'Body Master',mode:'challenge',target:null,parts:['head','shoulders','knees','toes'],ageGroup:'6-9'},
+  // SONG WORLD - sing and point
+  {id:'so-1',worldId:'song',index:0,title:'Head Shoulders Knees Toes',mode:'touchBody',target:'head',ageGroup:'3-5'},
+  {id:'so-2',worldId:'song',index:1,title:'Listen and Sing',mode:'listenMatch',target:null,parts:['head','shoulders','knees','toes','eyes','ears','mouth','nose'],ageGroup:'4-7'},
+  {id:'so-3',worldId:'song',index:2,title:'Song Memory',mode:'memoryMatch',target:null,parts:['head','shoulders','knees','toes'],ageGroup:'4-7'},
+  {id:'so-4',worldId:'song',index:3,title:'Touch Your Toes',mode:'touchBody',target:'toes',ageGroup:'3-5'},
+  {id:'so-5',worldId:'song',index:4,title:'Song Sentences',mode:'sentenceBuilder',target:'shoulders',ageGroup:'5-9'},
+  {id:'so-6',worldId:'song',index:5,title:'Touch Your Mouth',mode:'touchBody',target:'mouth',ageGroup:'3-5'},
+  {id:'so-7',worldId:'song',index:6,title:'Song Detective',mode:'challenge',target:null,parts:['head','shoulders','knees','toes','eyes','ears','mouth','nose'],ageGroup:'6-9'},
+  {id:'so-8',worldId:'song',index:7,title:'Song Master',mode:'challenge',target:null,parts:['head','shoulders','knees','toes','eyes','ears','mouth','nose'],ageGroup:'6-9'},
+  // MIXED WORLD - all parts
+  {id:'mi-1',worldId:'mixed',index:0,title:'Touch Your Head',mode:'touchBody',target:'head',ageGroup:'5-9'},
+  {id:'mi-2',worldId:'mixed',index:1,title:'Listen to All',mode:'listenMatch',target:null,parts:['head','shoulders','knees','toes','eyes','ears','mouth','nose'],ageGroup:'5-9'},
+  {id:'mi-3',worldId:'mixed',index:2,title:'All Memory',mode:'memoryMatch',target:null,parts:['head','shoulders','knees','toes','eyes','ears','mouth','nose'],ageGroup:'5-9'},
+  {id:'mi-4',worldId:'mixed',index:3,title:'Touch Your Eyes',mode:'touchBody',target:'eyes',ageGroup:'5-9'},
+  {id:'mi-5',worldId:'mixed',index:4,title:'Mixed Sentences',mode:'sentenceBuilder',target:'knees',ageGroup:'5-9'},
+  {id:'mi-6',worldId:'mixed',index:5,title:'Touch Your Nose',mode:'touchBody',target:'nose',ageGroup:'5-9'},
+  {id:'mi-7',worldId:'mixed',index:6,title:'Mixed Detective',mode:'challenge',target:null,parts:['head','shoulders','knees','toes','eyes','ears','mouth','nose'],ageGroup:'6-9'},
+  {id:'mi-8',worldId:'mixed',index:7,title:'Mixed Master',mode:'challenge',target:null,parts:['head','shoulders','knees','toes','eyes','ears','mouth','nose'],ageGroup:'6-9'},
+  // BOSS WORLD
+  {id:'bs-1',worldId:'boss',index:0,title:'🏆 Body Quiz!',mode:'bodyQuiz',target:null,ageGroup:'5-9'},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let state={screen:'start',characterId:'detective',currentLevel:null,currentWorldId:null,soundEnabled:true,narrationEnabled:true,progress:{}};
+function loadState(){try{const s=localStorage.getItem('my-body-save');if(s){const p=JSON.parse(s);state.characterId=p.characterId||'detective';state.soundEnabled=p.soundEnabled!==false;state.narrationEnabled=p.narrationEnabled!==false;state.progress=p.progress||{};}}catch(e){}}
+function saveState(){try{localStorage.setItem('my-body-save',JSON.stringify({characterId:state.characterId,soundEnabled:state.soundEnabled,narrationEnabled:state.narrationEnabled,progress:state.progress}));}catch(e){}}
+function totalStars(){return Object.values(state.progress).reduce((s,p)=>s+(p.stars||0),0);}
+function isLevelUnlocked(id,wid){const ls=WORLD_LEVEL_ORDER[wid];const i=ls.indexOf(id);if(i<=0)return true;return state.progress[ls[i-1]]?.completed||false;}
+function isWorldUnlocked(wid){const o=['face','body','song','mixed','boss'];const i=o.indexOf(wid);if(i<=0)return true;return WORLD_LEVEL_ORDER[o[i-1]].every(id=>state.progress[id]?.completed);}
+
+// ============================================================
+// AUDIO
+// ============================================================
+let audioCtx=null;
+function getAudioCtx(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}return audioCtx;}
+const sfx={
+  click(){const c=getAudioCtx();if(!c)return;const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=600;o.type='sine';g.gain.setValueAtTime(0.15,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.1);o.start();o.stop(c.currentTime+0.1);},
+  correct(){const c=getAudioCtx();if(!c)return;[523,659,784].forEach((f,i)=>{const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=f;o.type='sine';g.gain.setValueAtTime(0,c.currentTime+i*0.1);g.gain.linearRampToValueAtTime(0.15,c.currentTime+i*0.1+0.01);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+i*0.1+0.2);o.start(c.currentTime+i*0.1);o.stop(c.currentTime+i*0.1+0.2);});},
+  incorrect(){const c=getAudioCtx();if(!c)return;const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=200;o.type='sawtooth';g.gain.setValueAtTime(0.15,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.3);o.start();o.stop(c.currentTime+0.3);},
+  pop(){const c=getAudioCtx();if(!c)return;const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=300;o.type='sine';o.frequency.exponentialRampToValueAtTime(600,c.currentTime+0.05);g.gain.setValueAtTime(0.1,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.1);o.start();o.stop(c.currentTime+0.1);},
+  fanfare(){const c=getAudioCtx();if(!c)return;[523,659,784,1047].forEach((f,i)=>{const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=f;o.type='triangle';g.gain.setValueAtTime(0,c.currentTime+i*0.12);g.gain.linearRampToValueAtTime(0.15,c.currentTime+i*0.12+0.01);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+i*0.12+0.3);o.start(c.currentTime+i*0.12);o.stop(c.currentTime+i*0.12+0.3);});},
+  whoosh(){const c=getAudioCtx();if(!c)return;const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=400;o.type='sawtooth';o.frequency.exponentialRampToValueAtTime(800,c.currentTime+0.2);g.gain.setValueAtTime(0.1,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.2);o.start();o.stop(c.currentTime+0.2);},
+};
+function speak(text){if(!state.narrationEnabled||!window.speechSynthesis)return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=0.8;u.pitch=1.2;u.volume=1;const vs=window.speechSynthesis.getVoices();const pref=['Google US English','Samantha','Karen','Microsoft Zira'];for(const n of pref){const v=vs.find(v=>v.name.includes(n));if(v){u.voice=v;break;}}window.speechSynthesis.speak(u);}
+function hoverSpeak(el){if(!state.narrationEnabled||!window.speechSynthesis)return;var word=el.dataset.speak;if(!word){word=el.textContent.replace(/[^\x20-\x7E]/g,'').trim();}if(!word)return;document.querySelectorAll('.hover-speak.speaking').forEach(p=>p.classList.remove('speaking'));el.classList.add('speaking');if(window._hsTimer)clearTimeout(window._hsTimer);window._hsTimer=setTimeout(()=>el.classList.remove('speaking'),1500);window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(word);u.rate=0.75;u.pitch=1.3;u.volume=1;const vs=window.speechSynthesis.getVoices();const pref=['Google US English','Samantha','Karen','Microsoft Zira'];for(const n of pref){const v=vs.find(v=>v.name.includes(n));if(v){u.voice=v;break;}}window.speechSynthesis.speak(u);}
+function toggleSound(){state.soundEnabled=!state.soundEnabled;document.getElementById('sound-btn').textContent=state.soundEnabled?'🔊':'🔇';saveState();}
+function toggleNarration(){state.narrationEnabled=!state.narrationEnabled;document.getElementById('narration-btn').textContent=state.narrationEnabled?'🗣️':'🔇';if(!state.narrationEnabled)window.speechSynthesis?.cancel();saveState();}
+
+// ============================================================
+// SCREENS
+// ============================================================
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id+'-screen').classList.add('active');state.screen=id;}
+function goToStart(){if(state.soundEnabled)sfx.click();showScreen('start');}
+function goToMap(){if(state.soundEnabled)sfx.click();showScreen('map');renderMap();}
+function goToGame(){if(state.soundEnabled)sfx.click();showScreen('game');}
+
+// ============================================================
+// START SCREEN
+// ============================================================
+function renderStart(){
+  document.getElementById('sound-btn').textContent=state.soundEnabled?'🔊':'🔇';
+  document.getElementById('narration-btn').textContent=state.narrationEnabled?'🗣️':'🔇';
+  const kr=document.getElementById('flashcard-row');kr.innerHTML='';
+  const keywords=['head','shoulders','knees','toes','eyes','ears','mouth','nose'];
+  keywords.forEach((part,idx)=>{
+    const pill=document.createElement('div');
+    pill.className='keyword-pill';
+    pill.style.background=BODY_PARTS[part].color;
+    pill.innerHTML='<span style="width:32px;height:32px;display:inline-block;">'+partSVG(part)+'</span><span>'+BODY_PARTS[part].label+'</span>';
+    const svg=pill.querySelector('svg');if(svg)svg.style.pointerEvents='none';
+    pill.onclick=()=>speakFlashcard(pill,BODY_PARTS[part].spoken);
+    kr.appendChild(pill);
+    setTimeout(()=>pill.classList.add('flashcard-in'),300+idx*120);
+  });
+  const cr=document.getElementById('char-row');cr.innerHTML='';
+  CHARACTERS.forEach(c=>{
+    const btn=document.createElement('button');
+    btn.className='char-btn'+(state.characterId===c.id?' selected':'');
+    btn.innerHTML='<span style="font-size:1.5rem;">'+c.emoji+'</span><span>'+c.name+'</span>';
+    btn.onclick=()=>{state.characterId=c.id;saveState();renderStart();if(state.soundEnabled)sfx.click();};
+    cr.appendChild(btn);
+  });
+}
+function speakFlashcard(el,word){if(state.soundEnabled)sfx.click();document.querySelectorAll('.keyword-pill.speaking').forEach(p=>p.classList.remove('speaking'));el.classList.add('speaking');if(window._ft)clearTimeout(window._ft);window._ft=setTimeout(()=>el.classList.remove('speaking'),1500);if(state.narrationEnabled&&window.speechSynthesis){window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(word);u.rate=0.7;u.pitch=1.3;u.volume=1;const vs=window.speechSynthesis.getVoices();const pref=['Google US English','Samantha','Karen','Microsoft Zira'];for(const n of pref){const v=vs.find(v=>v.name.includes(n));if(v){u.voice=v;break;}}window.speechSynthesis.speak(u);}}
+
+// ============================================================
+// MAP SCREEN
+// ============================================================
+function renderMap(){
+  document.getElementById('map-total-stars').textContent=totalStars();
+  const c=document.getElementById('map-container');c.innerHTML='';
+  WORLDS.forEach(w=>{
+    const unlocked=isWorldUnlocked(w.id);
+    const levels=WORLD_LEVEL_ORDER[w.id];
+    const worldStars=levels.reduce((s,id)=>s+(state.progress[id]?.stars||0),0);
+    const maxStars=levels.length*3;
+    let levelsHtml='';
+    levels.forEach((lid,idx)=>{
+      const level=LEVELS.find(l=>l.id===lid);
+      const lu=isLevelUnlocked(lid,w.id);
+      const stars=state.progress[lid]?.stars||0;
+      const completed=state.progress[lid]?.completed;
+      const modeIcons={touchBody:'👆',listenMatch:'👂',memoryMatch:'🃏',sentenceBuilder:'📝',challenge:'🏆',bodyQuiz:'🏆'};
+      levelsHtml+=`<button class="level-btn" ${!lu?'disabled':''} onclick="startLevel('${w.id}',${idx})"><div class="level-num" style="color:${w.color}">L${idx+1}</div><div class="level-icon">${lu?modeIcons[level.mode]:'🔒'}</div><div class="level-title">${level.title}</div><div class="level-stars">${[1,2,3].map(n=>`<span class="${n<=stars?'':'dim'}">⭐</span>`).join('')}</div>${completed?'<div class="level-check">✓</div>':''}</button>`;
+    });
+    const card=document.createElement('div');
+    card.className='world-card';
+    card.innerHTML=`<div class="world-header" style="background:${unlocked?w.color:'#6B7280'}"><span class="world-emoji">${w.emoji}</span><div><div class="world-name">${w.name}</div><div class="world-desc">${w.desc}</div></div><div class="world-stars"><span>⭐</span><span>${worldStars}/${maxStars}</span></div></div><div class="levels-grid">${levelsHtml}</div>${!unlocked?'<div class="locked-overlay"><div class="lock">🔒</div><p>Locked!</p><p style="font-size:0.875rem;opacity:0.8">Complete the previous world to unlock</p></div>':''}`;
+    c.appendChild(card);
+  });
+}
+function startLevel(wid,idx){
+  const level=LEVELS.find(l=>l.worldId===wid&&l.index===idx);
+  if(!level)return;
+  state.currentLevel=level;state.currentWorldId=wid;
+  document.getElementById('game-total-stars').textContent=totalStars();
+  renderGameIntro();
+}
+function renderGameIntro(){
+  const level=state.currentLevel;
+  document.getElementById('game-level-info').innerHTML=`<span style="font-size:1rem">${WORLDS.find(w=>w.id===state.currentWorldId)?.emoji||''}</span><span>${level.title}</span>`;
+  const modeHints={touchBody:'Touch the body part on the kid!',listenMatch:'Listen and tap the matching body part!',memoryMatch:'Flip cards to match body parts!',sentenceBuilder:'Build the sentence!',challenge:'🏆 CHALLENGE! Mixed body parts!',bodyQuiz:'🏆 BOSS! Answer all the body quiz questions!'};
+  const c=document.getElementById('game-container');
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;"><div class="intro-card"><div style="text-align:center;margin-bottom:1rem;"><div class="intro-age">${level.ageGroup} years</div><h2 class="intro-title">${level.title}</h2></div><div class="intro-question" style="background:#E0F2FE;border-color:#3B82F6;">${modeHints[level.mode]}</div><div class="intro-buttons">${state.narrationEnabled?'<button class="btn btn-blue btn-md" onclick="speakQuestion()">🔊 Hear it</button>':''}<button class="btn btn-green btn-lg" onclick="startGameplay()">Let's Go! 🚀</button></div></div></div>`;
+}
+function speakQuestion(){if(state.soundEnabled)sfx.click();speak("Let's learn about our body!");}
+function startGameplay(){if(state.soundEnabled)sfx.click();const l=state.currentLevel;const m=l.mode;if(m==='touchBody')startTouchBody();else if(m==='listenMatch')startListenMatch();else if(m==='memoryMatch')startMemoryMatch();else if(m==='sentenceBuilder')startSentenceBuilder();else if(m==='challenge')startChallenge();else if(m==='bodyQuiz')startBodyQuiz();}
+
+// ============================================================
+// MODE 1: TOUCH BODY (tap the body part on the kid)
+// ============================================================
+let tbState=null;
+function startTouchBody(){
+  const level=state.currentLevel;
+  tbState={target:level.target,phase:'asking',mistakes:0};
+  renderTouchBody();
+  if(state.narrationEnabled)setTimeout(()=>speak('Touch your '+BODY_PARTS[level.target].spoken),300);
+}
+function renderTouchBody(){
+  const s=tbState;const part=BODY_PARTS[s.target];
+  const c=document.getElementById('game-container');
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;">
+    <div class="question-banner hover-speak" data-speak="Touch your ${part.spoken}!" style="border-color:${part.color};"><p>👆 Touch your <span style="color:${part.color}">${part.label}</span>!</p></div>
+    <div class="body-display">${bodySVG(s.target)}</div>
+    <div style="text-align:center;font-weight:bold;color:#374151;font-size:1rem;margin:0.5rem 0;">Tap the ${part.label} on the kid!</div>
+  </div>`;
+}
+function bodyPartTap(part){
+  const s=tbState;if(s.phase!=='asking')return;
+  if(part===s.target){
+    if(state.soundEnabled)sfx.correct();s.phase='correct';
+    showConfetti(60);showFeedback(BODY_PARTS[part].spoken.charAt(0).toUpperCase()+BODY_PARTS[part].spoken.slice(1)+'! 🎉','correct');
+    if(state.narrationEnabled)setTimeout(()=>speak(BODY_PARTS[part].spoken+'!'),500);
+    const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);
+    setTimeout(()=>completeLevel(stars,score),2500);
+  }else{
+    if(state.soundEnabled)sfx.incorrect();s.mistakes++;
+    showFeedback(`That's your `+BODY_PARTS[part].spoken+'! Try again! 🤔','wrong');
+    if(state.narrationEnabled)setTimeout(()=>speak(`That's your `+BODY_PARTS[part].spoken+'. Touch your '+BODY_PARTS[s.target].spoken),500);
+    setTimeout(()=>hideFeedback(),2000);
+  }
+}
+
+// ============================================================
+// MODE 2: LISTEN & MATCH
+// ============================================================
+let lmState=null;
+function startListenMatch(){
+  const level=state.currentLevel;
+  const parts=level.parts||['head','shoulders','knees','toes'];
+  const targetIdx=Math.floor(Math.random()*parts.length);
+  lmState={parts,targetIdx,selected:null,phase:'asking',mistakes:0};
+  renderListenMatch();
+  if(state.narrationEnabled)setTimeout(()=>speak(BODY_PARTS[parts[targetIdx]].spoken),300);
+}
+function renderListenMatch(){
+  const s=lmState;const c=document.getElementById('game-container');
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;">
+    <div class="question-banner hover-speak" data-speak="Listen and tap the matching body part!" style="border-color:#22C55E;"><p>👂 Listen and tap the matching body part!</p></div>
+    ${state.narrationEnabled?'<div style="text-align:center;margin:0.5rem 0;"><button class="btn btn-blue btn-md" onclick="replayLM()">🔊 Hear again</button></div>':''}
+    <div class="choice-grid" style="grid-template-columns:repeat(2,1fr);max-width:20rem;">
+      ${s.parts.map((p,i)=>{const pd=BODY_PARTS[p];let cls='choice-btn';let st='border-color:'+pd.color+';';if(s.selected===i)st+='background:'+pd.color+'22;';if(s.phase==='correct'&&i===s.targetIdx)cls+=' correct';if(s.phase==='wrong'&&s.selected===i&&i!==s.targetIdx)cls+=' wrong';return '<button class="'+cls+'" style="'+st+'" onclick="lmSelect('+i+')" '+(s.phase!=='asking'?'disabled':'')+'><div style="width:50px;height:50px;margin:0 auto;">'+partSVG(p)+'</div><div style="font-size:0.75rem;margin-top:0.25rem;">'+pd.label+'</div></button>';}).join('')}
+    </div>
+  </div>`;
+}
+function replayLM(){if(state.soundEnabled)sfx.click();if(state.narrationEnabled)speak(BODY_PARTS[lmState.parts[lmState.targetIdx]].spoken);}
+function lmSelect(i){
+  const s=lmState;if(s.phase!=='asking')return;s.selected=i;
+  if(i===s.targetIdx){
+    if(state.soundEnabled)sfx.correct();s.phase='correct';showConfetti(60);showFeedback('Correct! 🎉','correct');
+    renderListenMatch();if(state.narrationEnabled)setTimeout(()=>speak(BODY_PARTS[s.parts[s.targetIdx]].spoken+'!'),800);
+    const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);
+    setTimeout(()=>completeLevel(stars,score),2500);
+  }else{
+    if(state.soundEnabled)sfx.incorrect();s.phase='wrong';s.mistakes++;
+    renderListenMatch();showFeedback('Try again! 🤔','wrong');
+    setTimeout(()=>{s.phase='asking';s.selected=null;renderListenMatch();hideFeedback();},1500);
+  }
+}
+
+// ============================================================
+// MODE 3: MEMORY MATCH
+// ============================================================
+let mmState=null;
+function startMemoryMatch(){
+  const level=state.currentLevel;
+  const parts=level.parts||['head','shoulders','knees','toes'];
+  const pairs=parts.concat(parts);
+  for(let i=pairs.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pairs[i],pairs[j]]=[pairs[j],pairs[i]];}
+  mmState={cards:pairs.map((p,i)=>({id:i,part:p,flipped:false,matched:false})),flipped:[],matched:0,total:parts.length,mistakes:0,phase:'playing'};
+  renderMemoryMatch();
+}
+function renderMemoryMatch(){
+  const s=mmState;const c=document.getElementById('game-container');
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;">
+    <div class="question-banner hover-speak" data-speak="Match the body part pairs!" style="border-color:#8B5CF6;"><p>🃏 Match the body parts!</p></div>
+    <div class="progress-row"><span style="font-size:0.875rem;font-weight:bold;color:#374151;">Matched:</span><div class="progress-bar"><div class="progress-fill" style="width:${(s.matched/s.total)*100}%;background:#8B5CF6;"></div></div><span style="font-weight:bold;font-size:1.125rem;color:#8B5CF6;">${s.matched}/${s.total}</span></div>
+    <div style="display:grid;grid-template-columns:repeat(${s.cards.length<=4?2:4},1fr);gap:0.5rem;max-width:24rem;margin:0 auto;padding:0.5rem;">
+      ${s.cards.map(card=>{let bg=card.matched?'#D1FAE5':card.flipped?'white':'#8B5CF6';let border=card.matched?'#22C55E':card.flipped?'#8B5CF6':'#7C3AED';return '<button class="choice-btn" style="background:'+bg+';border-color:'+border+';aspect-ratio:1;padding:0.25rem;" onclick="mmFlip('+card.id+')" '+(card.matched||card.flipped||s.phase!=='playing'?'disabled':'')+'>'+(card.flipped||card.matched?'<div style="width:100%;height:100%;">'+partSVG(card.part)+'</div>':'<span style="font-size:2rem;">❓</span>')+'</button>';}).join('')}
+    </div>
+  </div>`;
+}
+function mmFlip(id){
+  const s=mmState;if(s.phase!=='playing')return;
+  const card=s.cards.find(c=>c.id===id);if(!card||card.flipped||card.matched)return;
+  card.flipped=true;s.flipped.push(card);if(state.soundEnabled)sfx.click();renderMemoryMatch();
+  if(s.flipped.length===2){
+    s.phase='checking';
+    setTimeout(()=>{
+      if(s.flipped[0].part===s.flipped[1].part){
+        s.flipped[0].matched=true;s.flipped[1].matched=true;s.matched++;
+        if(state.soundEnabled)sfx.correct();
+        if(s.matched===s.total){
+          showConfetti(100);showFeedback('PERFECT! 🎉','correct');
+          if(state.narrationEnabled)setTimeout(()=>speak('Perfect! You matched all the body parts!'),500);
+          const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);
+          setTimeout(()=>completeLevel(stars,score),2500);
+        }
+      }else{
+        s.flipped[0].flipped=false;s.flipped[1].flipped=false;s.mistakes++;
+        if(state.soundEnabled)sfx.incorrect();
+      }
+      s.flipped=[];s.phase='playing';renderMemoryMatch();
+    },1000);
+  }
+}
+
+// ============================================================
+// MODE 4: SENTENCE BUILDER
+// ============================================================
+let sbState=null;
+function startSentenceBuilder(){
+  const level=state.currentLevel;
+  const part=BODY_PARTS[level.target];
+  const sentence='These are my '+part.spoken+'.';
+  sbState={target:sentence,part:level.target,words:[],phase:'building',mistakes:0};
+  renderSentenceBuilder();
+  if(state.narrationEnabled)setTimeout(()=>speak(sentence),300);
+}
+function renderSentenceBuilder(){
+  const s=sbState;const part=BODY_PARTS[s.part];
+  const c=document.getElementById('game-container');
+  const words=['These','are','my',part.spoken];
+  const shuffled=[...words];for(let i=shuffled.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];}
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;">
+    <div class="question-banner hover-speak" data-speak="Build the sentence!" style="border-color:#F59E0B;"><p>📝 Build the sentence!</p></div>
+    <div style="display:flex;justify-content:center;margin:0.5rem 0;"><div style="width:60px;height:60px;">${partSVG(s.part)}</div></div>
+    <div style="background:white;border:3px dashed #F59E0B;border-radius:0.75rem;padding:1rem;margin:0.5rem;min-height:3rem;display:flex;align-items:center;justify-content:center;gap:0.25rem;flex-wrap:wrap;">
+      ${s.words.map(w=>`<span style="background:${part.color};color:white;padding:0.25rem 0.75rem;border-radius:0.375rem;font-weight:bold;font-size:1rem;">${w}</span>`).join('')}
+      ${s.words.length<words.length?'<span style="color:#D1D5DB;font-size:1.25rem;">...</span>':''}
+    </div>
+    <div class="choice-grid" style="grid-template-columns:repeat(4,1fr);max-width:28rem;">
+      ${shuffled.map(w=>'<button class="choice-btn" style="border-color:'+part.color+';color:'+part.color+';" onclick="sbSelect(\''+w.replace(/'/g,"\\'")+'\')">'+w+'</button>').join('')}
+    </div>
+  </div>`;
+}
+function sbSelect(word){
+  const s=sbState;if(s.phase!=='building')return;
+  s.words.push(word);if(state.soundEnabled)sfx.click();
+  const targetWords=s.target.replace('.','').split(' ');
+  if(s.words.length===targetWords.length){
+    const correct=s.words.every((w,i)=>w===targetWords[i]);
+    if(correct){
+      s.phase='correct';if(state.soundEnabled)sfx.correct();showConfetti(60);
+      showFeedback('Perfect! 🎉','correct');renderSentenceBuilder();
+      if(state.narrationEnabled)setTimeout(()=>speak(s.target),500);
+      const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);
+      setTimeout(()=>completeLevel(stars,score),2500);
+    }else{
+      s.phase='wrong';s.mistakes++;if(state.soundEnabled)sfx.incorrect();
+      showFeedback('Try again! 🤔','wrong');
+      setTimeout(()=>{s.phase='building';s.words=[];renderSentenceBuilder();hideFeedback();},1500);
+    }
+  }else{renderSentenceBuilder();}
+}
+
+// ============================================================
+// MODE 5: CHALLENGE
+// ============================================================
+let chState=null;
+function startChallenge(){
+  const level=state.currentLevel;
+  const parts=level.parts||['head','shoulders','knees','toes'];
+  const rounds=[];const seen=new Set();
+  while(rounds.length<6&&seen.size<parts.length){const p=parts[Math.floor(Math.random()*parts.length)];if(!seen.has(p)){seen.add(p);rounds.push({part:p});}}
+  chState={rounds,currIdx:0,phase:'asking',mistakes:0};
+  renderChallenge();
+  if(state.narrationEnabled)setTimeout(()=>speak('Touch your '+BODY_PARTS[rounds[0].part].spoken),300);
+}
+function renderChallenge(){
+  const s=chState;const c=document.getElementById('game-container');
+  if(s.currIdx>=s.rounds.length){
+    if(state.soundEnabled)sfx.fanfare();showConfetti(100);showFeedback('CHALLENGE COMPLETE! 🏆','correct');
+    const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);
+    setTimeout(()=>completeLevel(stars,score),2500);return;
+  }
+  const r=s.rounds[s.currIdx];const part=BODY_PARTS[r.part];
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;">
+    <div class="question-banner hover-speak" data-speak="Touch your ${part.spoken}!" style="border-color:#EF4444;"><p>🏆 Challenge ${s.currIdx+1}/${s.rounds.length}: Touch your <span style="color:${part.color}">${part.label}</span>!</p></div>
+    <div class="body-display">${bodySVG(r.part)}</div>
+  </div>`;
+}
+// Override bodyPartTap for challenge mode
+var _origBodyPartTap = bodyPartTap;
+bodyPartTap = function(part) {
+  if (chState && chState.phase === 'asking') {
+    var s = chState;
+    var r = s.rounds[s.currIdx];
+    if (part === r.part) {
+      if (state.soundEnabled) sfx.correct();
+      s.phase = 'correct';
+      showFeedback(BODY_PARTS[part].spoken.charAt(0).toUpperCase()+BODY_PARTS[part].spoken.slice(1)+'! 🎉', 'correct');
+      if (state.narrationEnabled) setTimeout(() => speak(BODY_PARTS[part].spoken + '!'), 500);
+      setTimeout(() => { s.currIdx++; s.phase = 'asking'; renderChallenge(); hideFeedback(); }, 2000);
+    } else {
+      if (state.soundEnabled) sfx.incorrect();
+      s.mistakes++;
+      showFeedback(`That's your `+BODY_PARTS[part].spoken+'! Try again! 🤔', 'wrong');
+      setTimeout(() => hideFeedback(), 2000);
+    }
+    return;
+  }
+  if (tbState && tbState.phase === 'asking') {
+    _origBodyPartTap(part);
+  }
+};
+
+// ============================================================
+// BOSS MODE: BODY QUIZ (AAAA Quality)
+// ============================================================
+let bqState=null;
+const QUIZ_TASKS=[
+  {part:'head',hint:'Touch your head!'},
+  {part:'eyes',hint:'Touch your eyes!'},
+  {part:'shoulders',hint:'Touch your shoulders!'},
+  {part:'mouth',hint:'Touch your mouth!'},
+  {part:'knees',hint:'Touch your knees!'},
+  {part:'ears',hint:'Touch your ears!'},
+  {part:'toes',hint:'Touch your toes!'},
+  {part:'nose',hint:'Touch your nose!'},
+];
+function startBodyQuiz(){
+  bqState={taskIdx:0,answers:[],mistakes:0,phase:'asking',score:0};
+  renderBodyQuiz();
+  const task=QUIZ_TASKS[0];
+  if(state.narrationEnabled)setTimeout(()=>speak(task.hint),400);
+  if(state.soundEnabled){sfx.whoosh();setTimeout(()=>sfx.fanfare(),300);}
+}
+function renderBodyQuiz(){
+  const s=bqState;const task=QUIZ_TASKS[s.taskIdx];const part=BODY_PARTS[task.part];
+  const c=document.getElementById('game-container');
+  let progressHtml='<div style="display:flex;justify-content:center;gap:0.5rem;margin:0.5rem 0;flex-wrap:wrap;">';
+  QUIZ_TASKS.forEach((t,i)=>{
+    const done=i<s.taskIdx;const current=i===s.taskIdx;
+    const bg=done?'#22C55E':current?'#FBBF24':'rgba(255,255,255,0.3)';
+    const border=done?'#16A34A':current?'#F59E0B':'rgba(255,255,255,0.4)';
+    progressHtml+=`<div style="width:2rem;height:2rem;border-radius:50%;background:${bg};border:3px solid ${border};display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:900;color:${done?'white':current?'#7C2D12':'#6B7280'};${current?'animation:pulse-glow 0.8s ease-in-out infinite;':''}">${done?'&#10003;':i+1}</div>`;
+  });
+  progressHtml+='</div>';
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;background:linear-gradient(135deg,#0F172A,#1E3A8A);">
+    <div class="question-banner" style="border-color:#FBBF24;background:rgba(254,243,199,0.9);">
+      <p style="color:#92400E;">🏆 Body Quiz — Question ${s.taskIdx+1} of ${QUIZ_TASKS.length}</p>
+    </div>
+    ${progressHtml}
+    <div class="hover-speak" data-speak="${task.hint}" style="text-align:center;padding:0.75rem 1rem;background:rgba(255,255,255,0.9);border-radius:0.75rem;margin:0.5rem auto;max-width:28rem;cursor:pointer;">
+      <p style="font-size:1.5rem;font-weight:bold;color:#1E3A8A;">${task.hint}</p>
+      <p style="font-size:0.875rem;color:#374151;margin-top:0.25rem;">Tap the ${part.label} on the kid!</p>
+    </div>
+    <div class="body-display" style="filter:drop-shadow(2px 2px 8px rgba(0,0,0,0.3));">${bodySVG(task.part)}</div>
+  </div>`;
+}
+// Override bodyPartTap for boss quiz mode
+var _origBodyPartTap2 = bodyPartTap;
+bodyPartTap = function(part) {
+  if (bqState && bqState.phase === 'asking') {
+    var s = bqState;
+    var task = QUIZ_TASKS[s.taskIdx];
+    if (part === task.part) {
+      if (state.soundEnabled) { sfx.correct(); sfx.pop(); }
+      s.phase = 'correct'; s.score++;
+      s.answers.push({part:task.part,correct:true});
+      showFeedback(BODY_PARTS[part].spoken.charAt(0).toUpperCase()+BODY_PARTS[part].spoken.slice(1)+'! &#127881;', 'correct');
+      if (state.narrationEnabled) setTimeout(() => speak(BODY_PARTS[part].spoken + '!'), 400);
+      renderBodyQuiz();
+      setTimeout(() => {
+        s.taskIdx++;
+        if (s.taskIdx >= QUIZ_TASKS.length) {
+          completeBodyQuiz();
+        } else {
+          s.phase = 'asking';
+          renderBodyQuiz();
+          hideFeedback();
+          var nextTask = QUIZ_TASKS[s.taskIdx];
+          if (state.narrationEnabled) setTimeout(() => speak(nextTask.hint), 300);
+        }
+      }, 3500);
+    } else {
+      if (state.soundEnabled) sfx.incorrect();
+      s.mistakes++;
+      showFeedback(`That's your `+BODY_PARTS[part].spoken+'! Try again! &#129300;', 'wrong');
+      if (state.narrationEnabled) setTimeout(() => speak(`That's your `+BODY_PARTS[part].spoken+'. '+task.hint), 400);
+      setTimeout(() => hideFeedback(), 2500);
+    }
+    return;
+  }
+  if (chState && chState.phase === 'asking') {
+    _origBodyPartTap2(part);
+  } else if (tbState && tbState.phase === 'asking') {
+    _origBodyPartTap2(part);
+  }
+};
+function completeBodyQuiz(){
+  if(state.soundEnabled){sfx.fanfare();setTimeout(()=>sfx.fanfare(),400);setTimeout(()=>sfx.fanfare(),800);}
+  showConfetti(200);
+  const stars=bqState.mistakes===0?3:bqState.mistakes<=2?2:1;
+  const score=Math.max(50,100-bqState.mistakes*10);
+  const level=state.currentLevel;
+  const existing=state.progress[level.id];
+  state.progress[level.id]={stars:Math.max(existing?.stars||0,stars),completed:true,bestScore:Math.max(existing?.bestScore||0,score)};
+  saveState();
+  showBodyQuizOverview(stars,score);
+  if(state.narrationEnabled)setTimeout(()=>speak('Well done! You completed the Body Quiz!'),500);
+}
+function showBodyQuizOverview(stars,score){
+  const container=document.getElementById('game-container');
+  let partsHtml='';
+  QUIZ_TASKS.forEach((task,i)=>{
+    const part=BODY_PARTS[task.part];
+    partsHtml+=`<div style="display:flex;align-items:center;gap:0.5rem;background:#F0FDF4;border-radius:0.75rem;padding:0.5rem;border:2px solid #BBF7D0;animation:bounce-in 0.4s ease-out ${i*0.1}s backwards;">
+      <div style="width:36px;height:36px;">${partSVG(task.part)}</div>
+      <div style="font-weight:bold;color:#16A34A;font-size:0.875rem;">${part.label}</div>
+      <div style="margin-left:auto;font-size:1.25rem;">&#10003;</div>
+    </div>`;
+  });
+  container.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;background:linear-gradient(135deg,#0F172A,#1E3A8A);">
+    <div style="background:white;border-radius:1.5rem;padding:1.5rem;max-width:32rem;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.4);text-align:center;">
+      <h1 style="font-size:2.5rem;color:#FBBF24;font-weight:900;margin-bottom:0.25rem;">🏆 Body Quiz Complete! 🎉</h1>
+      <p style="font-size:1.125rem;color:#374151;margin-bottom:0.75rem;">Well done! You know all your body parts!</p>
+      <div style="display:flex;justify-content:center;gap:0.25rem;margin-bottom:0.75rem;">
+        ${[1,2,3].map(n=>`<span style="font-size:2rem;">${n<=stars?'⭐':'☆'}</span>`).join('')}
+      </div>
+      <div style="font-size:1.5rem;font-weight:900;color:#FBBF24;margin:0.5rem 0;">Score: ${bqState.score}/${QUIZ_TASKS.length}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin:0.75rem 0;text-align:left;">${partsHtml}</div>
+      <div style="font-size:1rem;font-weight:bold;color:#7C2D12;margin-bottom:0.75rem;">Points: ${score}</div>
+      <div style="display:flex;gap:0.5rem;justify-content:center;">
+        <button class="btn btn-gray btn-md" onclick="retryLevel()">🔄 Retry</button>
+        <button class="btn btn-blue btn-md" onclick="goToMap()">🗺️ Map</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('game-total-stars').textContent=totalStars();
+}
+
+// ============================================================
+// COMPLETION & RESULTS
+// ============================================================
+function completeLevel(stars,score){const l=state.currentLevel;const e=state.progress[l.id];state.progress[l.id]={stars:Math.max(e?.stars||0,stars),completed:true,bestScore:Math.max(e?.bestScore||0,score)};saveState();renderResults(stars,score);}
+function renderResults(stars,score){hideFeedback();const l=state.currentLevel;const ms=['KEEP PRACTICING!','GOOD TRY!','GREAT JOB!','AMAZING!'];const msg=ms[stars];const cl=['#9CA3AF','#3B82F6','#22C55E','#FBBF24'];
+  const c=document.getElementById('game-container');
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;"><div class="result-card"><h2 class="result-message" style="color:${cl[stars]};">${msg}</h2><div class="result-stars">${[1,2,3].map(n=>'<svg class="result-star" viewBox="0 0 24 24"><path d="M12 2 L14.85 8.5 L22 9.27 L16.5 14 L17.95 21 L12 17.5 L6.05 21 L7.5 14 L2 9.27 L9.15 8.5 Z" fill="'+(n<=stars?'#FBBF24':'#E5E7EB')+'" stroke="'+(n<=stars?'#B45309':'#9CA3AF')+'" stroke-width="1.5" stroke-linejoin="round"/></svg>').join('')}</div><div class="result-answer">🧒 Great body learning!</div>${state.narrationEnabled?'<div style="margin-bottom:1rem;"><button class="btn btn-blue btn-sm" onclick="speakAnswer()">🔊 Hear it</button></div>':''}<div class="result-score">Score: <span>${score} points</span></div><div class="result-buttons"><button class="btn btn-gray btn-md" onclick="retryLevel()">🔄 Retry</button><button class="btn btn-blue btn-md" onclick="goToMap()">🗺️ Map</button><button class="btn btn-green btn-lg" onclick="nextLevel()">Next →</button></div></div></div>`;if(state.narrationEnabled)setTimeout(()=>speak('Great job!'),800);}
+function speakAnswer(){if(state.soundEnabled)sfx.click();speak('Great job!');}
+function retryLevel(){if(state.soundEnabled)sfx.click();renderGameIntro();}
+function nextLevel(){const l=state.currentLevel;const wid=state.currentWorldId;const wl=LEVELS.filter(l=>l.worldId===wid);const ni=l.index+1;if(ni<wl.length){const nl=wl.find(l=>l.index===ni);if(nl){if(state.soundEnabled)sfx.whoosh();state.currentLevel=nl;renderGameIntro();return;}}goToMap();}
+
+// ============================================================
+// EFFECTS
+// ============================================================
+function showFeedback(msg,type){const o=document.getElementById('feedback-overlay');const m=document.getElementById('feedback-msg');m.textContent=msg;m.className='feedback-msg feedback-'+type;o.classList.remove('hidden');if(window._ft)clearTimeout(window._ft);window._ft=setTimeout(()=>hideFeedback(),2000);}
+function hideFeedback(){document.getElementById('feedback-overlay').classList.add('hidden');}
+function showConfetti(n){const c=document.getElementById('confetti-container');c.classList.remove('hidden');c.innerHTML='';const cl=['#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#FBBF24'];for(let i=0;i<n;i++){const p=document.createElement('div');p.className='confetti-piece';p.style.left=Math.random()*100+'%';p.style.background=cl[Math.floor(Math.random()*cl.length)];p.style.width=(8+Math.random()*8)+'px';p.style.height=(8+Math.random()*8)+'px';p.style.borderRadius=Math.random()>0.5?'50%':'2px';p.style.animationDuration=(2+Math.random()*2)+'s';p.style.animationDelay=(Math.random()*0.5)+'s';c.appendChild(p);}setTimeout(()=>{c.classList.add('hidden');c.innerHTML='';},3500);}
+
+// ============================================================
+// INIT
+// ============================================================
+function init(){
+  loadState();renderStart();
+  if(window.speechSynthesis){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();}
+  if(!window._hoverObserver){
+    window._hoverObserver=new MutationObserver(()=>{
+      document.querySelectorAll('.hover-speak:not([data-hover-bound])').forEach(el=>{
+        el.setAttribute('data-hover-bound','1');
+        el.addEventListener('mouseenter',()=>hoverSpeak(el));
+        el.addEventListener('click',e=>{if(e.target===el||el.contains(e.target))hoverSpeak(el);});
+      });
+    });
+    window._hoverObserver.observe(document.body,{childList:true,subtree:true});
+  }
+}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
+document.addEventListener('touchmove',function(e){if(e.target.closest('.map-container'))return;e.preventDefault();},{passive:false});
+</script>
+</body>
+</html>

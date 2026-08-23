@@ -360,6 +360,7 @@ const WORLDS = [
   { id:'home',      name:'Home',      emoji:'🏠', color:'#8B5CF6', desc:'Explore animals at home!' },
   { id:'garden',    name:'Garden',    emoji:'🌷', color:'#10B981', desc:'Discover animals in the garden!' },
   { id:'park',      name:'Park',      emoji:'🌳', color:'#F59E0B', desc:'Play with animals at the park!' },
+  { id:'boss',      name:'Park Keeper', emoji:'🗺️', color:'#DC2626', desc:'Help the keeper map the park!' },
 ];
 
 const WORLD_LEVEL_ORDER = {
@@ -367,6 +368,7 @@ const WORLD_LEVEL_ORDER = {
   home:      ['ho-1','ho-2','ho-3','ho-4','ho-5','ho-6','ho-7','ho-8'],
   garden:    ['ga-1','ga-2','ga-3','ga-4','ga-5','ga-6','ga-7','ga-8'],
   park:      ['pa-1','pa-2','pa-3','pa-4','pa-5','pa-6','pa-7','pa-8'],
+  boss:      ['bo-1'],
 };
 
 const LEVELS = [
@@ -407,6 +409,7 @@ const LEVELS = [
   { id:'ga-8', worldId:'garden', index:7, title:'Garden Master', mode:'challenge', object:'rock', ageGroup:'6-9', scene:[{animal:'worm',preposition:'under',count:5},{animal:'ladybug',preposition:'on',count:4},{animal:'ladybug',preposition:'by',count:2},{animal:'butterfly',preposition:'on',count:3},{animal:'butterfly',preposition:'by',count:2}], target:{animal:'worm',preposition:'under',count:5} },
   { id:'pa-7', worldId:'park', index:6, title:'Park Detective', mode:'challenge', object:'bench', ageGroup:'6-9', scene:[{animal:'cat',preposition:'on',count:3},{animal:'cat',preposition:'by',count:2},{animal:'dog',preposition:'by',count:4},{animal:'rabbit',preposition:'by',count:3}], target:{animal:'dog',preposition:'by',count:4} },
   { id:'pa-8', worldId:'park', index:7, title:'Park Master', mode:'challenge', object:'sandbox', ageGroup:'6-9', scene:[{animal:'dog',preposition:'in',count:4},{animal:'dog',preposition:'on',count:2},{animal:'cat',preposition:'by',count:3},{animal:'mouse',preposition:'under',count:4},{animal:'mouse',preposition:'by',count:2}], target:{animal:'mouse',preposition:'under',count:4} },
+  { id:'bo-1', worldId:'boss', index:0, title:'🗺️ Park Keeper\'s Map', mode:'parkMap', ageGroup:'5-9', object:'tree', target:{animal:'bird',preposition:'on',count:0}, scene:[] },
 ];
 
 // SVG strings will be inserted here by the generator
@@ -584,6 +587,7 @@ function speak(text) {
   window.speechSynthesis.speak(u);
 }
 function stopSpeaking() { if (window.speechSynthesis) window.speechSynthesis.cancel(); }
+function hoverSpeak(el){if(!state.narrationEnabled||!window.speechSynthesis)return;var word=el.dataset.speak;if(!word){word=el.textContent.replace(/[^\x20-\x7E]/g,'').trim();}if(!word)return;document.querySelectorAll('.hover-speak.speaking').forEach(p=>p.classList.remove('speaking'));el.classList.add('speaking');if(window._hsTimer)clearTimeout(window._hsTimer);window._hsTimer=setTimeout(()=>el.classList.remove('speaking'),1500);window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(word);u.rate=0.75;u.pitch=1.3;u.volume=1;const voices=window.speechSynthesis.getVoices();const pref=['Google US English','Samantha','Karen','Microsoft Zira'];for(const n of pref){const v=voices.find(v=>v.name.includes(n));if(v){u.voice=v;break;}}window.speechSynthesis.speak(u);}
 
 // ============================================================
 // SCREEN MANAGEMENT
@@ -699,7 +703,7 @@ function renderMap() {
       const lvlUnlocked = isLevelUnlocked(level.id, world.id);
       const stars = state.progress[level.id]?.stars || 0;
       const completed = state.progress[level.id]?.completed;
-      const modeIcons = { tapCount:'👆', findPosition:'🔍', dragDrop:'✋', sentenceBuilder:'📝', challenge:'🏆' };
+      const modeIcons = { tapCount:'👆', findPosition:'🔍', dragDrop:'✋', sentenceBuilder:'📝', challenge:'🏆', parkMap:'🗺️' };
       levelsHtml += `
         <button class="level-btn" ${!lvlUnlocked ? 'disabled' : ''} onclick="startLevel('${world.id}', ${lIdx})" style="border-color:${unlocked ? '#fff' : '#D1D5DB'}">
           <div class="level-num" style="color:${world.color}">Level ${lIdx+1}</div>
@@ -793,6 +797,7 @@ function startGameplay() {
   else if (level.mode === 'dragDrop') startDragDrop();
   else if (level.mode === 'sentenceBuilder') startSentenceBuilder();
   else if (level.mode === 'challenge') startChallenge();
+  else if (level.mode === 'parkMap') startParkMap();
 }
 
 // ============================================================
@@ -1564,6 +1569,81 @@ function challengeSelectPrep(p) {
 }
 
 // ============================================================
+
+// BOSS MODE: PARK KEEPER'S MAP
+let parkMapState = null;
+const PARK_MAP_TASKS = [
+  { item:'bird',    emoji:'🐦', prep:'on',    target:'tree',  hint:'Put the bird ON the tree' },
+  { item:'squirrel',emoji:'🐿️', prep:'in',    target:'tree',  hint:'Put the squirrel IN the tree' },
+  { item:'cat',     emoji:'🐱', prep:'under', target:'bench', hint:'Put the cat UNDER the bench' },
+  { item:'ball',    emoji:'⚽', prep:'by',    target:'bench', hint:'Put the ball BY the bench' },
+  { item:'frog',    emoji:'🐸', prep:'in',    target:'pond',  hint:'Put the frog IN the pond' },
+  { item:'rabbit',  emoji:'🐰', prep:'by',    target:'pond',  hint:'Put the rabbit BY the pond' },
+];
+function startParkMap() {
+  parkMapState = { taskIdx: 0, placed: {}, mistakes: 0, phase: 'placing', selectedZone: null };
+  renderParkMap();
+  const task = PARK_MAP_TASKS[0];
+  if (state.narrationEnabled) setTimeout(() => speak(task.hint), 400);
+  if (state.soundEnabled) { sfx.whoosh(); setTimeout(() => sfx.fanfare(), 300); }
+}
+function renderParkMap() {
+  const s = parkMapState; const task = PARK_MAP_TASKS[s.taskIdx];
+  const container = document.getElementById('game-container');
+  const zones = ['on','in','under','by'];
+  let zonesHtml = '';
+  zones.forEach(prep => {
+    const isSelected = s.selectedZone === prep;
+    zonesHtml += '<div onclick="parkMapSelectZone(\'' + prep + '\')" style="background:' + (isSelected?'rgba(107,114,128,0.4)':'rgba(107,114,128,0.12)') + ';border:3px ' + (isSelected?'solid':'dashed') + ' ' + (isSelected?'#374151':'#9CA3AF') + ';border-radius:0.5rem;cursor:pointer;padding:1.5rem;text-align:center;font-weight:bold;color:#6B7280;">' + prep.toUpperCase() + '</div>';
+  });
+  container.innerHTML = '<div style="flex:1;display:flex;flex-direction:column;background:linear-gradient(135deg,#FEE2E2,#FECACA);">'
+    + '<div class="question-banner" style="border-color:#DC2626;background:#FEE2E2;"><p style="color:#991B1B;">🗺️ Park Keeper\'s Map — Task ' + (s.taskIdx + 1) + ' of ' + PARK_MAP_TASKS.length + '</p></div>'
+    + '<div class="hover-speak" data-speak="' + task.hint + '" style="text-align:center;padding:0.75rem 1rem;background:rgba(255,255,255,0.85);border-radius:0.75rem;margin:0.5rem auto;max-width:32rem;cursor:pointer;"><p style="font-size:1.5rem;font-weight:bold;color:#7C2D12;">' + task.hint + '</p></div>'
+    + '<div style="text-align:center;font-size:3rem;margin:0.5rem 0;">' + task.emoji + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;max-width:28rem;margin:0.5rem auto;">' + zonesHtml + '</div>'
+    + '<div style="text-align:center;margin:0.5rem 0;"><button class="btn btn-green btn-lg" onclick="checkParkMap()">✓ Check!</button></div></div>';
+}
+function parkMapSelectZone(prep) { const s = parkMapState; if (state.soundEnabled) sfx.click(); s.selectedZone = prep; renderParkMap(); }
+function checkParkMap() {
+  const s = parkMapState; const task = PARK_MAP_TASKS[s.taskIdx];
+  if (s.selectedZone === null) { showFeedback('Tap a zone first! 👆', 'wrong'); setTimeout(() => hideFeedback(), 1500); return; }
+  if (s.selectedZone === task.prep) {
+    if (state.soundEnabled) { sfx.correct(); sfx.pop(); }
+    s.placed[s.taskIdx] = s.selectedZone; s.phase = 'correct'; showConfetti(60);
+    showFeedback(task.emoji + ' ' + task.item + ' ' + task.prep.toUpperCase() + ' the ' + task.target + '! 🎉', 'correct');
+    if (state.narrationEnabled) setTimeout(() => speak('Yes! ' + task.item + ' ' + task.prep + ' the ' + task.target), 400);
+    setTimeout(() => { s.taskIdx++; s.selectedZone = null;
+      if (s.taskIdx >= PARK_MAP_TASKS.length) { completeParkMap(); }
+      else { s.phase = 'placing'; renderParkMap(); hideFeedback();
+        const nextTask = PARK_MAP_TASKS[s.taskIdx];
+        if (state.narrationEnabled) setTimeout(() => speak(nextTask.hint), 500); }
+    }, 3500);
+  } else {
+    if (state.soundEnabled) sfx.incorrect(); s.mistakes++; s.phase = 'wrong';
+    showFeedback('Try again! 🤔', 'wrong');
+    if (state.narrationEnabled) setTimeout(() => speak('Not quite. ' + task.hint), 400);
+    setTimeout(() => { s.phase = 'placing'; s.selectedZone = null; renderParkMap(); hideFeedback(); }, 2500);
+  }
+}
+function completeParkMap() {
+  if (state.soundEnabled) { sfx.fanfare(); setTimeout(() => sfx.fanfare(), 400); setTimeout(() => sfx.fanfare(), 800); }
+  showConfetti(200);
+  const stars = parkMapState.mistakes === 0 ? 3 : parkMapState.mistakes <= 2 ? 2 : 1;
+  const score = Math.max(50, 100 - parkMapState.mistakes * 10);
+  const level = state.currentLevel; const existing = state.progress[level.id];
+  state.progress[level.id] = { stars: Math.max(existing?.stars || 0, stars), completed: true, bestScore: Math.max(existing?.bestScore || 0, score) };
+  saveState();
+  const container = document.getElementById('game-container');
+  let itemsHtml = '';
+  PARK_MAP_TASKS.forEach((task, i) => {
+    itemsHtml += '<div style="display:flex;align-items:center;gap:0.375rem;background:#F0FDF4;padding:0.375rem 0.625rem;border-radius:0.375rem;border:1px solid #BBF7D0;font-size:0.875rem;"><span style="font-size:1.125rem;">' + task.emoji + '</span><span style="color:#16A34A;font-weight:bold;">' + task.item + ' ' + task.prep.toUpperCase() + ' ' + task.target + '</span></div>';
+  });
+  container.innerHTML = '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;background:linear-gradient(135deg,#86EFAC,#4ADE80);"><div style="background:white;border-radius:1.5rem;padding:1.5rem;max-width:32rem;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2);text-align:center;"><h1 style="font-size:2rem;color:#16A34A;font-weight:900;">🌳 Park Complete! 🎉</h1><p style="font-size:1.125rem;color:#374151;margin-bottom:0.75rem;">Well done! The park is complete!</p><div style="display:flex;justify-content:center;gap:0.25rem;margin-bottom:0.75rem;">' + [1,2,3].map(n => '<span style="font-size:1.75rem;">' + (n <= stars ? '⭐' : '☆') + '</span>').join('') + '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:0.375rem;margin:0.75rem 0;">' + itemsHtml + '</div><div style="font-size:1rem;font-weight:bold;color:#7C2D12;margin-bottom:0.75rem;">Score: ' + score + ' points</div><div style="display:flex;gap:0.5rem;justify-content:center;"><button class="btn btn-gray btn-md" onclick="retryLevel()">🔄 Retry</button><button class="btn btn-blue btn-md" onclick="goToMap()">🗺️ Map</button></div></div></div>';
+  document.getElementById('game-total-stars').textContent = totalStars();
+  if (state.narrationEnabled) setTimeout(() => speak('Well done! The park is complete!'), 500);
+}
+
+
 // LEVEL COMPLETION & RESULTS
 // ============================================================
 function completeLevel(stars, score) {
@@ -1680,6 +1760,7 @@ function showConfetti(count) {
 function init() {
   loadState();
   renderStart();
+  if(!window._hoverObserver){window._hoverObserver=new MutationObserver(()=>{document.querySelectorAll('.hover-speak:not([data-hover-bound])').forEach(el=>{el.setAttribute('data-hover-bound','1');el.addEventListener('mouseenter',()=>hoverSpeak(el));el.addEventListener('click',e=>{if(e.target===el||el.contains(e.target))hoverSpeak(el);});});});window._hoverObserver.observe(document.body,{childList:true,subtree:true});}
   // Initialize speech synthesis voices
   if (window.speechSynthesis) {
     window.speechSynthesis.getVoices();

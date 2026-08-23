@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Do You Like? - ESL Food Preferences Game</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body { font-family:'Comic Sans MS','Chalkboard SE','Comic Neue','Nunito',system-ui,sans-serif; overscroll-behavior:none; -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; background:#FEF3C7; color:#1F2937; overflow-x:hidden; }
+.screen { display:none; min-height:100vh; width:100%; }
+.screen.active { display:flex; flex-direction:column; }
+@keyframes bounce-in { 0%{transform:scale(0) translateY(20px);opacity:0;} 60%{transform:scale(1.1) translateY(-5px);opacity:1;} 100%{transform:scale(1) translateY(0);opacity:1;} }
+@keyframes pulse-glow { 0%,100%{box-shadow:0 0 8px rgba(251,191,36,0.5);} 50%{box-shadow:0 0 20px rgba(251,191,36,1);} }
+@keyframes float { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+#start-screen { background:linear-gradient(135deg,#F59E0B,#EF4444,#EC4899); align-items:center; justify-content:center; padding:1rem; position:relative; overflow:hidden; }
+.start-title { font-size:clamp(2rem,6vw,3.5rem); color:white; text-shadow:0 4px 0 rgba(0,0,0,0.3),0 8px 20px rgba(0,0,0,0.4); text-align:center; font-weight:900; line-height:1; margin-bottom:0.5rem; animation:bounce-in 0.6s ease-out; }
+.start-subtitle { color:rgba(255,255,255,0.9); text-align:center; font-size:1.125rem; font-weight:bold; margin-bottom:1rem; text-shadow:0 2px 4px rgba(0,0,0,0.3); animation:bounce-in 0.6s ease-out 0.2s backwards; }
+.flashcard-row { display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center; max-width:36rem; margin:0 auto 1rem; }
+.keyword-pill { padding:0.5rem 0.875rem; border-radius:9999px; font-weight:bold; color:white; border:3px solid rgba(255,255,255,0.8); display:flex; align-items:center; gap:0.375rem; box-shadow:0 4px 8px rgba(0,0,0,0.2); cursor:pointer; transition:all 0.2s; opacity:0; transform:scale(0); }
+.keyword-pill.flashcard-in { animation:bounce-in 0.4s ease-out forwards; }
+.keyword-pill:hover { transform:scale(1.1); }
+.keyword-pill .pill-svg { width:32px; height:32px; }
+.keyword-pill .pill-svg svg { pointer-events:none; }
+.keyword-pill.speaking { box-shadow:0 0 16px rgba(255,255,255,0.8); transform:scale(1.15); }
+.char-section { text-align:center; margin-bottom:1rem; }
+.char-section p { color:white; font-size:1rem; font-weight:bold; margin-bottom:0.5rem; }
+.char-row { display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap; }
+.char-btn { padding:0.5rem 1rem; border-radius:9999px; background:rgba(255,255,255,0.2); backdrop-filter:blur(8px); border:2px solid rgba(255,255,255,0.4); color:white; font-weight:bold; font-size:1rem; cursor:pointer; font-family:inherit; transition:all 0.2s; display:flex; align-items:center; gap:0.375rem; }
+.char-btn:hover, .char-btn.selected { background:rgba(255,255,255,0.4); border-color:white; transform:scale(1.05); }
+.settings-row { position:absolute; top:1rem; right:1rem; display:flex; gap:0.5rem; z-index:20; }
+.settings-btn { width:3rem; height:3rem; border-radius:50%; background:rgba(255,255,255,0.3); backdrop-filter:blur(8px); border:2px solid rgba(255,255,255,0.5); font-size:1.5rem; cursor:pointer; display:flex; align-items:center; justify-content:center; font-family:inherit; }
+.play-btn { padding:1rem 3rem; border-radius:9999px; background:#FBBF24; color:#7C2D12; font-size:1.5rem; font-weight:900; border:4px solid white; cursor:pointer; font-family:inherit; box-shadow:0 6px 0 #B45309, 0 10px 20px rgba(0,0,0,0.3); transition:all 0.2s; animation:bounce-in 0.6s ease-out 0.8s backwards; }
+.play-btn:hover { transform:translateY(-2px); box-shadow:0 8px 0 #B45309, 0 12px 24px rgba(0,0,0,0.3); }
+.play-btn:active { transform:translateY(4px); box-shadow:0 2px 0 #B45309, 0 4px 8px rgba(0,0,0,0.3); }
+.topbar { position:sticky; top:0; z-index:30; background:rgba(255,255,255,0.95); border-bottom:3px solid #E5E7EB; padding:0.5rem 1rem; display:flex; align-items:center; justify-content:space-between; }
+.topbar-btn { padding:0.375rem 1rem; border-radius:9999px; background:white; border:2px solid #D1D5DB; font-weight:bold; color:#374151; cursor:pointer; font-size:0.875rem; font-family:inherit; }
+.topbar-btn:hover { background:#F3F4F6; }
+.topbar-info { font-weight:bold; color:#374151; font-size:0.875rem; }
+.star-badge { display:flex; align-items:center; gap:0.25rem; background:#FEF3C7; border:2px solid #FBBF24; padding:0.25rem 0.75rem; border-radius:9999px; font-weight:bold; color:#92400E; }
+.map-container { flex:1; overflow-y:auto; padding:1rem; max-width:42rem; margin:0 auto; width:100%; }
+.world-card { background:white; border-radius:1rem; overflow:hidden; margin-bottom:1rem; box-shadow:0 4px 12px rgba(0,0,0,0.1); border:3px solid #E5E7EB; }
+.world-header { padding:1rem; display:flex; align-items:center; gap:0.75rem; color:white; }
+.world-emoji { font-size:2rem; }
+.world-name { font-size:1.25rem; font-weight:900; }
+.world-desc { font-size:0.75rem; opacity:0.9; }
+.world-stars { margin-left:auto; background:rgba(255,255,255,0.2); padding:0.25rem 0.75rem; border-radius:9999px; font-size:0.875rem; }
+.levels-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; padding:0.75rem; }
+@media(max-width:400px) { .levels-grid { grid-template-columns:repeat(2,1fr); } }
+.level-btn { background:#F9FAFB; border:2px solid #E5E7EB; border-radius:0.5rem; padding:0.5rem; cursor:pointer; font-family:inherit; text-align:center; transition:all 0.2s; position:relative; }
+.level-btn:hover:not(:disabled) { background:#F3F4F6; transform:translateY(-2px); }
+.level-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.level-num { font-size:0.75rem; font-weight:bold; color:#6B7280; }
+.level-icon { font-size:1.5rem; margin:0.25rem 0; }
+.level-title { font-size:0.625rem; color:#374151; line-height:1.2; }
+.level-stars { font-size:0.625rem; margin-top:0.25rem; }
+.level-stars .dim { opacity:0.3; }
+.level-check { position:absolute; top:2px; right:4px; color:#22C55E; font-weight:bold; }
+.locked-overlay { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem; color:#9CA3AF; }
+.locked-overlay .lock { font-size:3rem; }
+#game-container { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
+.question-banner { background:white; border:3px solid #3B82F6; border-radius:0.75rem; padding:0.75rem 1rem; margin:0.5rem; text-align:center; }
+.question-banner p { font-size:1.125rem; font-weight:bold; color:#1F2937; }
+.choices-panel { background:white; border:3px solid #E5E7EB; border-radius:0.75rem; padding:0.75rem; margin:0.5rem; }
+.choices-title { font-size:0.875rem; font-weight:bold; color:#6B7280; margin-bottom:0.5rem; text-align:center; }
+.choice-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:0.5rem; max-width:24rem; margin:0 auto; }
+.choice-btn { background:white; border:3px solid #D1D5DB; border-radius:0.75rem; padding:0.75rem; cursor:pointer; font-family:inherit; text-align:center; transition:all 0.2s; font-size:1rem; font-weight:bold; }
+.choice-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 4px 8px rgba(0,0,0,0.1); }
+.choice-btn:disabled { opacity:0.5; cursor:default; }
+.choice-btn.correct { border-color:#22C55E; background:#D1FAE5; }
+.choice-btn.wrong { border-color:#EF4444; background:#FEE2E2; }
+.yesno-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; max-width:20rem; margin:0 auto; }
+.yesno-btn { padding:1.5rem; border-radius:1rem; border:4px solid; cursor:pointer; font-family:inherit; font-size:1.25rem; font-weight:900; transition:all 0.2s; }
+.yesno-btn:hover:not(:disabled) { transform:scale(1.05); }
+.yesno-btn:disabled { opacity:0.5; }
+.yes-btn { border-color:#22C55E; background:#D1FAE5; color:#16A34A; }
+.yes-btn.correct { background:#22C55E; color:white; }
+.no-btn { border-color:#EF4444; background:#FEE2E2; color:#DC2626; }
+.no-btn.correct { background:#EF4444; color:white; }
+.food-display { display:flex; justify-content:center; margin:0.5rem 0; }
+.food-display svg { width:120px; height:120px; filter:drop-shadow(2px 2px 6px rgba(0,0,0,0.2)); }
+.progress-row { display:flex; align-items:center; gap:0.5rem; margin:0.5rem; }
+.progress-bar { flex:1; height:0.75rem; background:#E5E7EB; border-radius:9999px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:9999px; transition:width 0.3s; }
+.feedback-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; z-index:100; pointer-events:none; }
+.feedback-overlay.hidden { display:none; }
+.feedback-msg { background:white; padding:1.5rem 2rem; border-radius:1rem; font-size:1.5rem; font-weight:900; box-shadow:0 10px 30px rgba(0,0,0,0.3); animation:bounce-in 0.3s ease-out; }
+.feedback-correct { color:#16A34A; border:4px solid #22C55E; }
+.feedback-wrong { color:#DC2626; border:4px solid #EF4444; }
+.confetti-container { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:99; overflow:hidden; }
+.confetti-container.hidden { display:none; }
+.confetti-piece { position:absolute; animation:confetti-fall 3s linear forwards; }
+@keyframes confetti-fall { 0%{transform:translateY(-100px) rotate(0deg);opacity:1;} 100%{transform:translateY(100vh) rotate(720deg);opacity:0;} }
+.hover-speak { cursor:pointer; }
+.hover-speak.speaking { box-shadow:0 0 12px rgba(251,191,36,0.6); }
+.btn { padding:0.5rem 1rem; border-radius:9999px; border:none; cursor:pointer; font-family:inherit; font-weight:bold; transition:all 0.2s; }
+.btn:active { transform:scale(0.95); }
+.btn-green { background:#22C55E; color:white; }
+.btn-blue { background:#3B82F6; color:white; }
+.btn-yellow { background:#FBBF24; color:#7C2D12; }
+.btn-gray { background:#6B7280; color:white; }
+.btn-lg { padding:0.75rem 2rem; font-size:1.125rem; }
+.btn-md { padding:0.5rem 1.25rem; font-size:0.875rem; }
+.btn-sm { padding:0.375rem 0.875rem; font-size:0.75rem; }
+.intro-card { background:white; border-radius:1.5rem; padding:1.5rem; max-width:28rem; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+.intro-title { font-size:1.5rem; font-weight:900; text-align:center; margin-bottom:0.5rem; }
+.intro-age { font-size:0.875rem; color:#6B7280; text-align:center; margin-bottom:0.5rem; }
+.intro-question { background:#FEF3C7; border:2px solid #FBBF24; border-radius:0.75rem; padding:1rem; margin:0.5rem 0; text-align:center; font-size:1.125rem; }
+.intro-hint { font-size:0.875rem; color:#6B7280; text-align:center; margin:0.5rem 0; }
+.intro-buttons { display:flex; gap:0.5rem; justify-content:center; margin-top:0.75rem; }
+.result-card { background:white; border-radius:1.5rem; padding:2rem; max-width:28rem; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+.result-message { font-size:2rem; font-weight:900; margin-bottom:0.5rem; }
+.result-stars { display:flex; justify-content:center; gap:0.25rem; margin:0.5rem 0; }
+.result-star { width:3rem; height:3rem; }
+.result-answer { font-size:1.125rem; color:#374151; margin:0.5rem 0; }
+.result-score { font-size:1rem; color:#6B7280; margin:0.5rem 0; }
+.result-buttons { display:flex; gap:0.5rem; justify-content:center; margin-top:1rem; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<div id="start-screen" class="screen active">
+  <div class="settings-row">
+    <button class="settings-btn" id="sound-btn" onclick="toggleSound()">🔊</button>
+    <button class="settings-btn" id="narration-btn" onclick="toggleNarration()">🗣️</button>
+  </div>
+  <h1 class="start-title">🍕 Do You Like? 🍫</h1>
+  <p class="start-subtitle">Learn to talk about food you like and don't like!</p>
+  <div class="flashcard-row" id="flashcard-row"></div>
+  <div class="char-section">
+    <p>Pick your friend!</p>
+    <div class="char-row" id="char-row"></div>
+  </div>
+  <button class="play-btn" onclick="goToMap()">PLAY! 🚀</button>
+</div>
+
+<div id="map-screen" class="screen">
+  <div class="topbar">
+    <button class="topbar-btn" onclick="goToStart()">← Home</button>
+    <div class="topbar-info">Do You Like?</div>
+    <div class="star-badge"><span>⭐</span><span id="map-total-stars">0</span></div>
+  </div>
+  <div class="map-container" id="map-container"></div>
+</div>
+
+<div id="game-screen" class="screen">
+  <div class="topbar">
+    <button class="topbar-btn" onclick="goToMap()">← Map</button>
+    <div class="topbar-info" id="game-level-info"></div>
+    <div class="star-badge"><span>⭐</span><span id="game-total-stars">0</span></div>
+  </div>
+  <div id="game-container"></div>
+</div>
+
+<div id="feedback-overlay" class="feedback-overlay hidden">
+  <div class="feedback-msg" id="feedback-msg"></div>
+</div>
+<div id="confetti-container" class="confetti-container hidden"></div>
+
+<script>
+// ============================================================
+// DATA: Food SVGs
+// ============================================================
+const FOOD_SVGS = {
+  'chocolate': `<svg viewBox="0 0 100 100" width="100%" height="100%"><rect x="20" y="30" width="60" height="50" fill="#7C2D12" stroke="#451A03" stroke-width="3" rx="3"/><rect x="20" y="30" width="60" height="12" fill="#92400E" stroke="#451A03" stroke-width="2"/><line x1="40" y1="42" x2="40" y2="80" stroke="#451A03" stroke-width="2"/><line x1="60" y1="42" x2="60" y2="80" stroke="#451A03" stroke-width="2"/><line x1="20" y1="55" x2="80" y2="55" stroke="#451A03" stroke-width="2"/><line x1="20" y1="68" x2="80" y2="68" stroke="#451A03" stroke-width="2"/><rect x="28" y="48" width="8" height="4" fill="#D97706" opacity="0.5"/><rect x="48" y="61" width="8" height="4" fill="#D97706" opacity="0.5"/><rect x="68" y="48" width="8" height="4" fill="#D97706" opacity="0.5"/></svg>`,
+  'french_fries': `<svg viewBox="0 0 100 100" width="100%" height="100%"><path d="M 30 45 L 35 90 L 65 90 L 70 45 Z" fill="#EF4444" stroke="#991B1B" stroke-width="2.5"/><path d="M 30 45 L 35 90 L 65 90 L 70 45 Z" fill="none" stroke="#991B1B" stroke-width="2.5"/><path d="M 30 45 L 28 50 L 72 50 L 70 45 Z" fill="#FCA5A5" stroke="#991B1B" stroke-width="2"/><rect x="38" y="15" width="6" height="40" fill="#FBBF24" stroke="#B45309" stroke-width="2" rx="2"/><rect x="46" y="10" width="6" height="45" fill="#FCD34D" stroke="#B45309" stroke-width="2" rx="2"/><rect x="54" y="18" width="6" height="37" fill="#FBBF24" stroke="#B45309" stroke-width="2" rx="2"/><rect x="42" y="22" width="5" height="33" fill="#F59E0B" stroke="#B45309" stroke-width="1.5" rx="2"/><rect x="58" y="25" width="5" height="30" fill="#F59E0B" stroke="#B45309" stroke-width="1.5" rx="2"/></svg>`,
+  'ice_cream': `<svg viewBox="0 0 100 100" width="100%" height="100%"><path d="M 35 45 L 50 90 L 65 45 Z" fill="#D4A574" stroke="#92400E" stroke-width="2.5"/><path d="M 35 45 L 50 90 L 65 45 Z" fill="none" stroke="#92400E" stroke-width="2.5"/><line x1="42" y1="55" x2="58" y2="55" stroke="#92400E" stroke-width="1.5"/><line x1="45" y1="65" x2="55" y2="65" stroke="#92400E" stroke-width="1.5"/><line x1="47" y1="75" x2="53" y2="75" stroke="#92400E" stroke-width="1.5"/><circle cx="50" cy="35" r="20" fill="#FBCFE8" stroke="#EC4899" stroke-width="2.5"/><circle cx="42" cy="28" r="14" fill="#FDE68A" stroke="#F59E0B" stroke-width="2"/><circle cx="58" cy="28" r="14" fill="#C4B5FD" stroke="#8B5CF6" stroke-width="2"/><circle cx="50" cy="20" r="3" fill="#DC2626" stroke="#991B1B" stroke-width="1"/></svg>`,
+  'pizza': `<svg viewBox="0 0 100 100" width="100%" height="100%"><path d="M 50 15 L 85 80 L 15 80 Z" fill="#FBBF24" stroke="#92400E" stroke-width="3"/><path d="M 50 15 L 85 80 L 15 80 Z" fill="none" stroke="#92400E" stroke-width="3"/><path d="M 50 15 L 85 80" stroke="#D97706" stroke-width="2" fill="none"/><path d="M 50 15 L 15 80" stroke="#D97706" stroke-width="2" fill="none"/><circle cx="50" cy="45" r="6" fill="#EF4444" stroke="#991B1B" stroke-width="1.5"/><circle cx="35" cy="60" r="5" fill="#EF4444" stroke="#991B1B" stroke-width="1.5"/><circle cx="65" cy="60" r="5" fill="#EF4444" stroke="#991B1B" stroke-width="1.5"/><circle cx="50" cy="70" r="4" fill="#EF4444" stroke="#991B1B" stroke-width="1.5"/><ellipse cx="42" cy="50" rx="3" ry="2" fill="#16A34A" opacity="0.7"/><ellipse cx="60" cy="55" rx="3" ry="2" fill="#16A34A" opacity="0.7"/><ellipse cx="55" cy="68" rx="3" ry="2" fill="#16A34A" opacity="0.7"/></svg>`,
+  'pasta': `<svg viewBox="0 0 100 100" width="100%" height="100%"><ellipse cx="50" cy="55" rx="38" ry="12" fill="#E5E7EB" stroke="#9CA3AF" stroke-width="2.5"/><ellipse cx="50" cy="50" rx="35" ry="10" fill="#F9FAFB" stroke="#9CA3AF" stroke-width="2"/><path d="M 25 50 Q 30 35 35 50 Q 40 35 45 50 Q 50 35 55 50 Q 60 35 65 50 Q 70 35 75 50" fill="none" stroke="#FBBF24" stroke-width="3" stroke-linecap="round"/><path d="M 25 55 Q 30 40 35 55 Q 40 40 45 55 Q 50 40 55 55 Q 60 40 65 55 Q 70 40 75 55" fill="none" stroke="#F59E0B" stroke-width="3" stroke-linecap="round"/><path d="M 25 60 Q 30 45 35 60 Q 40 45 45 60 Q 50 45 55 60 Q 60 45 65 60 Q 70 45 75 60" fill="none" stroke="#D97706" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="48" r="8" fill="#DC2626" stroke="#991B1B" stroke-width="2"/><circle cx="45" cy="46" r="2" fill="#86EFAC"/><circle cx="53" cy="50" r="2" fill="#86EFAC"/></svg>`,
+  'spider_pizza': `<svg viewBox="0 0 100 100" width="100%" height="100%"><path d="M 50 15 L 85 80 L 15 80 Z" fill="#FBBF24" stroke="#92400E" stroke-width="3"/><circle cx="50" cy="45" r="6" fill="#EF4444" stroke="#991B1B" stroke-width="1.5"/><circle cx="35" cy="60" r="5" fill="#EF4444" stroke="#991B1B" stroke-width="1.5"/><circle cx="65" cy="60" r="5" fill="#EF4444" stroke="#991B1B" stroke-width="1.5"/><ellipse cx="50" cy="40" rx="12" ry="8" fill="#1F2937" stroke="#0F172A" stroke-width="2"/><circle cx="46" cy="38" r="2.5" fill="#EF4444"/><circle cx="54" cy="38" r="2.5" fill="#EF4444"/><path d="M 38 42 L 28 48 M 38 44 L 26 52 M 38 46 L 28 58" stroke="#1F2937" stroke-width="2" stroke-linecap="round"/><path d="M 62 42 L 72 48 M 62 44 L 74 52 M 62 46 L 72 58" stroke="#1F2937" stroke-width="2" stroke-linecap="round"/></svg>`,
+  'spider_ice_cream': `<svg viewBox="0 0 100 100" width="100%" height="100%"><path d="M 35 45 L 50 90 L 65 45 Z" fill="#D4A574" stroke="#92400E" stroke-width="2.5"/><circle cx="50" cy="35" r="20" fill="#FBCFE8" stroke="#EC4899" stroke-width="2.5"/><circle cx="50" cy="28" r="10" fill="#1F2937" stroke="#0F172A" stroke-width="2"/><circle cx="47" cy="26" r="2" fill="#EF4444"/><circle cx="53" cy="26" r="2" fill="#EF4444"/><path d="M 42 28 L 35 22 M 42 30 L 33 28 M 42 32 L 34 34" stroke="#1F2937" stroke-width="1.5" stroke-linecap="round"/><path d="M 58 28 L 65 22 M 58 30 L 67 28 M 58 32 L 66 34" stroke="#1F2937" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  'snake_fries': `<svg viewBox="0 0 100 100" width="100%" height="100%"><path d="M 30 45 L 35 90 L 65 90 L 70 45 Z" fill="#EF4444" stroke="#991B1B" stroke-width="2.5"/><rect x="38" y="15" width="6" height="40" fill="#FBBF24" stroke="#B45309" stroke-width="2" rx="2"/><rect x="54" y="18" width="6" height="37" fill="#FBBF24" stroke="#B45309" stroke-width="2" rx="2"/><path d="M 20 60 Q 35 50 50 60 Q 65 70 80 60 Q 85 55 82 50" fill="none" stroke="#22C55E" stroke-width="6" stroke-linecap="round"/><circle cx="82" cy="50" r="5" fill="#22C55E" stroke="#15803D" stroke-width="2"/><circle cx="80" cy="48" r="1.5" fill="#1F2937"/><path d="M 84 52 L 86 54 L 84 54" stroke="#EF4444" stroke-width="1.5" fill="none"/></svg>`,
+  'snake_pasta': `<svg viewBox="0 0 100 100" width="100%" height="100%"><ellipse cx="50" cy="55" rx="38" ry="12" fill="#E5E7EB" stroke="#9CA3AF" stroke-width="2.5"/><path d="M 25 55 Q 30 40 35 55 Q 40 40 45 55 Q 50 40 55 55 Q 60 40 65 55 Q 70 40 75 55" fill="none" stroke="#FBBF24" stroke-width="3" stroke-linecap="round"/><path d="M 20 65 Q 35 55 50 65 Q 65 75 80 65 Q 85 60 82 55" fill="none" stroke="#22C55E" stroke-width="6" stroke-linecap="round"/><circle cx="82" cy="55" r="5" fill="#22C55E" stroke="#15803D" stroke-width="2"/><circle cx="80" cy="53" r="1.5" fill="#1F2937"/><path d="M 84 57 L 86 59 L 84 59" stroke="#EF4444" stroke-width="1.5" fill="none"/></svg>`,
+};
+
+const FOOD_DATA = {
+  'chocolate':    { label:'chocolate',    emoji:'🍫', color:'#7C2D12', spoken:'chocolate' },
+  'french_fries': { label:'french fries', emoji:'🍟', color:'#EF4444', spoken:'french fries' },
+  'ice_cream':    { label:'ice cream',    emoji:'🍦', color:'#EC4899', spoken:'ice cream' },
+  'pizza':        { label:'pizza',        emoji:'🍕', color:'#F59E0B', spoken:'pizza' },
+  'pasta':        { label:'pasta',        emoji:'🍝', color:'#FBBF24', spoken:'pasta' },
+  'spider_pizza': { label:'spider pizza', emoji:'🕷️', color:'#1F2937', spoken:'spider pizza' },
+  'spider_ice_cream': { label:'spider ice cream', emoji:'🕷️', color:'#1F2937', spoken:'spider ice cream' },
+  'snake_fries':  { label:'snake french fries', emoji:'🐍', color:'#22C55E', spoken:'snake french fries' },
+  'snake_pasta':  { label:'snake pasta',  emoji:'🐍', color:'#22C55E', spoken:'snake pasta' },
+};
+
+const CHARACTERS = [
+  {id:'detective',name:'Detective Owl',emoji:'🦉'},
+  {id:'explorer',name:'Explorer Fox',emoji:'🦊'},
+  {id:'scout',name:'Scout Bunny',emoji:'🐰'},
+  {id:'captain',name:'Captain Bear',emoji:'🐻'},
+];
+
+const WORLDS = [
+  {id:'snack',   name:'Snack Bar',  emoji:'🍫', color:'#7C2D12', desc:'Chocolates and fries!'},
+  {id:'pizza',   name:'Pizzeria',   emoji:'🍕', color:'#F59E0B', desc:'Pizza and pasta!'},
+  {id:'silly',   name:'Silly Kitchen', emoji:'🕷️', color:'#8B5CF6', desc:'Silly food combos!'},
+  {id:'mixed',   name:'Food Court', emoji:'🍔', color:'#22C55E', desc:'All foods mixed!'},
+  {id:'boss',    name:'5-Point Challenge', emoji:'⭐', color:'#DC2626', desc:'The ultimate test!'},
+];
+
+const WORLD_LEVEL_ORDER = {
+  snack: ['sn-1','sn-2','sn-3','sn-4','sn-5','sn-6','sn-7','sn-8'],
+  pizza: ['pi-1','pi-2','pi-3','pi-4','pi-5','pi-6','pi-7','pi-8'],
+  silly: ['si-1','si-2','si-3','si-4','si-5','si-6','si-7','si-8'],
+  mixed: ['mi-1','mi-2','mi-3','mi-4','mi-5','mi-6','mi-7','mi-8'],
+  boss:  ['bo-1'],
+};
+
+const LEVELS = [
+  // SNACK BAR - chocolate, french fries, ice cream
+  {id:'sn-1',worldId:'snack',index:0,title:'Do You Like Chocolate?',mode:'doYouLike',target:'chocolate',like:true,ageGroup:'3-5'},
+  {id:'sn-2',worldId:'snack',index:1,title:'Listen to Snacks',mode:'listenMatch',target:null,foods:['chocolate','french_fries','ice_cream'],ageGroup:'4-7'},
+  {id:'sn-3',worldId:'snack',index:2,title:'Snack Memory',mode:'memoryMatch',target:null,foods:['chocolate','french_fries','ice_cream'],ageGroup:'4-7'},
+  {id:'sn-4',worldId:'snack',index:3,title:'Do You Like Fries?',mode:'doYouLike',target:'french_fries',like:true,ageGroup:'3-5'},
+  {id:'sn-5',worldId:'snack',index:4,title:'Snack Sentences',mode:'sentenceBuilder',target:'chocolate',like:true,ageGroup:'5-9'},
+  {id:'sn-6',worldId:'snack',index:5,title:'Do You Like Ice Cream?',mode:'doYouLike',target:'ice_cream',like:true,ageGroup:'3-5'},
+  {id:'sn-7',worldId:'snack',index:6,title:'Snack Detective',mode:'challenge',target:null,foods:['chocolate','french_fries','ice_cream'],ageGroup:'6-9'},
+  {id:'sn-8',worldId:'snack',index:7,title:'Snack Master',mode:'challenge',target:null,foods:['chocolate','french_fries','ice_cream'],ageGroup:'6-9'},
+  // PIZZERIA - pizza, pasta
+  {id:'pi-1',worldId:'pizza',index:0,title:'Do You Like Pizza?',mode:'doYouLike',target:'pizza',like:true,ageGroup:'3-5'},
+  {id:'pi-2',worldId:'pizza',index:1,title:'Listen to Pizza',mode:'listenMatch',target:null,foods:['pizza','pasta'],ageGroup:'4-7'},
+  {id:'pi-3',worldId:'pizza',index:2,title:'Pizza Memory',mode:'memoryMatch',target:null,foods:['pizza','pasta'],ageGroup:'4-7'},
+  {id:'pi-4',worldId:'pizza',index:3,title:'Do You Like Pasta?',mode:'doYouLike',target:'pasta',like:true,ageGroup:'3-5'},
+  {id:'pi-5',worldId:'pizza',index:4,title:'Pizza Sentences',mode:'sentenceBuilder',target:'pizza',like:true,ageGroup:'5-9'},
+  {id:'pi-6',worldId:'pizza',index:5,title:'Pasta Sentences',mode:'sentenceBuilder',target:'pasta',like:true,ageGroup:'5-9'},
+  {id:'pi-7',worldId:'pizza',index:6,title:'Pizza Detective',mode:'challenge',target:null,foods:['pizza','pasta'],ageGroup:'6-9'},
+  {id:'pi-8',worldId:'pizza',index:7,title:'Pizza Master',mode:'challenge',target:null,foods:['pizza','pasta'],ageGroup:'6-9'},
+  // SILLY KITCHEN - spider/snake combos
+  {id:'si-1',worldId:'silly',index:0,title:'Spider Pizza?!',mode:'doYouLike',target:'spider_pizza',like:false,ageGroup:'4-7'},
+  {id:'si-2',worldId:'silly',index:1,title:'Listen to Silly',mode:'listenMatch',target:null,foods:['spider_pizza','spider_ice_cream','snake_fries','snake_pasta'],ageGroup:'4-7'},
+  {id:'si-3',worldId:'silly',index:2,title:'Silly Memory',mode:'memoryMatch',target:null,foods:['spider_pizza','snake_fries'],ageGroup:'4-7'},
+  {id:'si-4',worldId:'silly',index:3,title:'Spider Ice Cream?!',mode:'doYouLike',target:'spider_ice_cream',like:false,ageGroup:'4-7'},
+  {id:'si-5',worldId:'silly',index:4,title:'No Spider Pizza!',mode:'sentenceBuilder',target:'spider_pizza',like:false,ageGroup:'5-9'},
+  {id:'si-6',worldId:'silly',index:5,title:'Snake Fries?!',mode:'doYouLike',target:'snake_fries',like:false,ageGroup:'4-7'},
+  {id:'si-7',worldId:'silly',index:6,title:'Silly Detective',mode:'challenge',target:null,foods:['spider_pizza','spider_ice_cream','snake_fries','snake_pasta'],ageGroup:'6-9'},
+  {id:'si-8',worldId:'silly',index:7,title:'Silly Master',mode:'challenge',target:null,foods:['spider_pizza','spider_ice_cream','snake_fries','snake_pasta'],ageGroup:'6-9'},
+  // FOOD COURT - all mixed
+  {id:'mi-1',worldId:'mixed',index:0,title:'Do You Like?',mode:'doYouLike',target:'chocolate',like:true,ageGroup:'5-9'},
+  {id:'mi-2',worldId:'mixed',index:1,title:'Listen to All',mode:'listenMatch',target:null,foods:['chocolate','pizza','ice_cream','pasta'],ageGroup:'5-9'},
+  {id:'mi-3',worldId:'mixed',index:2,title:'Food Memory',mode:'memoryMatch',target:null,foods:['chocolate','pizza','ice_cream','pasta'],ageGroup:'5-9'},
+  {id:'mi-4',worldId:'mixed',index:3,title:'No Spider Pizza!',mode:'doYouLike',target:'spider_pizza',like:false,ageGroup:'5-9'},
+  {id:'mi-5',worldId:'mixed',index:4,title:'I Like Pizza',mode:'sentenceBuilder',target:'pizza',like:true,ageGroup:'5-9'},
+  {id:'mi-6',worldId:'mixed',index:5,title:'I Don\'t Like Snake Fries',mode:'sentenceBuilder',target:'snake_fries',like:false,ageGroup:'5-9'},
+  {id:'mi-7',worldId:'mixed',index:6,title:'Food Detective',mode:'challenge',target:null,foods:['chocolate','pizza','ice_cream','pasta','spider_pizza'],ageGroup:'6-9'},
+  {id:'mi-8',worldId:'mixed',index:7,title:'Food Master',mode:'challenge',target:null,foods:['chocolate','pizza','ice_cream','pasta','spider_pizza'],ageGroup:'6-9'},
+  // BOSS WORLD - 5-Point Challenge
+  {id:'bo-1',worldId:'boss',index:0,title:'⭐ 5-Point Challenge',mode:'fivePoint',target:null,ageGroup:'5-9'},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  screen:'start', characterId:'detective', currentLevel:null, currentWorldId:null,
+  soundEnabled:true, narrationEnabled:true, progress:{},
+};
+function loadState(){try{const s=localStorage.getItem('do-you-like-save');if(s){const p=JSON.parse(s);state.characterId=p.characterId||'detective';state.soundEnabled=p.soundEnabled!==false;state.narrationEnabled=p.narrationEnabled!==false;state.progress=p.progress||{};}}catch(e){}}
+function saveState(){try{localStorage.setItem('do-you-like-save',JSON.stringify({characterId:state.characterId,soundEnabled:state.soundEnabled,narrationEnabled:state.narrationEnabled,progress:state.progress}));}catch(e){}}
+function totalStars(){return Object.values(state.progress).reduce((s,p)=>s+(p.stars||0),0);}
+function isLevelUnlocked(id,wid){const ls=WORLD_LEVEL_ORDER[wid];const i=ls.indexOf(id);if(i<=0)return true;return state.progress[ls[i-1]]?.completed||false;}
+function isWorldUnlocked(wid){const o=['snack','pizza','silly','mixed','boss'];const i=o.indexOf(wid);if(i<=0)return true;return WORLD_LEVEL_ORDER[o[i-1]].every(id=>state.progress[id]?.completed);}
+
+// ============================================================
+// AUDIO
+// ============================================================
+let audioCtx=null;
+function getAudioCtx(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}return audioCtx;}
+const sfx={
+  click(){const c=getAudioCtx();if(!c)return;const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=600;o.type='sine';g.gain.setValueAtTime(0.15,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.1);o.start();o.stop(c.currentTime+0.1);},
+  correct(){const c=getAudioCtx();if(!c)return;[523,659,784].forEach((f,i)=>{const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=f;o.type='sine';g.gain.setValueAtTime(0,c.currentTime+i*0.1);g.gain.linearRampToValueAtTime(0.15,c.currentTime+i*0.1+0.01);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+i*0.1+0.2);o.start(c.currentTime+i*0.1);o.stop(c.currentTime+i*0.1+0.2);});},
+  incorrect(){const c=getAudioCtx();if(!c)return;const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=200;o.type='sawtooth';g.gain.setValueAtTime(0.15,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.3);o.start();o.stop(c.currentTime+0.3);},
+  pop(){const c=getAudioCtx();if(!c)return;const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=300;o.type='sine';o.frequency.exponentialRampToValueAtTime(600,c.currentTime+0.05);g.gain.setValueAtTime(0.1,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.1);o.start();o.stop(c.currentTime+0.1);},
+  fanfare(){const c=getAudioCtx();if(!c)return;[523,659,784,1047].forEach((f,i)=>{const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=f;o.type='triangle';g.gain.setValueAtTime(0,c.currentTime+i*0.12);g.gain.linearRampToValueAtTime(0.15,c.currentTime+i*0.12+0.01);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+i*0.12+0.3);o.start(c.currentTime+i*0.12);o.stop(c.currentTime+i*0.12+0.3);});},
+  whoosh(){const c=getAudioCtx();if(!c)return;const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=400;o.type='sawtooth';o.frequency.exponentialRampToValueAtTime(800,c.currentTime+0.2);g.gain.setValueAtTime(0.1,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.2);o.start();o.stop(c.currentTime+0.2);},
+};
+function speak(text){if(!state.narrationEnabled||!window.speechSynthesis)return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=0.8;u.pitch=1.2;u.volume=1;const vs=window.speechSynthesis.getVoices();const pref=['Google US English','Samantha','Karen','Microsoft Zira'];for(const n of pref){const v=vs.find(v=>v.name.includes(n));if(v){u.voice=v;break;}}window.speechSynthesis.speak(u);}
+function hoverSpeak(el){if(!state.narrationEnabled||!window.speechSynthesis)return;var word=el.dataset.speak;if(!word){word=el.textContent.replace(/[^\x20-\x7E]/g,'').trim();}if(!word)return;document.querySelectorAll('.hover-speak.speaking').forEach(p=>p.classList.remove('speaking'));el.classList.add('speaking');if(window._hsTimer)clearTimeout(window._hsTimer);window._hsTimer=setTimeout(()=>el.classList.remove('speaking'),1500);window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(word);u.rate=0.75;u.pitch=1.3;u.volume=1;const vs=window.speechSynthesis.getVoices();const pref=['Google US English','Samantha','Karen','Microsoft Zira'];for(const n of pref){const v=vs.find(v=>v.name.includes(n));if(v){u.voice=v;break;}}window.speechSynthesis.speak(u);}
+function toggleSound(){state.soundEnabled=!state.soundEnabled;document.getElementById('sound-btn').textContent=state.soundEnabled?'🔊':'🔇';saveState();}
+function toggleNarration(){state.narrationEnabled=!state.narrationEnabled;document.getElementById('narration-btn').textContent=state.narrationEnabled?'🗣️':'🔇';if(!state.narrationEnabled)window.speechSynthesis?.cancel();saveState();}
+
+// ============================================================
+// SCREENS
+// ============================================================
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id+'-screen').classList.add('active');state.screen=id;}
+function goToStart(){if(state.soundEnabled)sfx.click();showScreen('start');}
+function goToMap(){if(state.soundEnabled)sfx.click();showScreen('map');renderMap();}
+function goToGame(){if(state.soundEnabled)sfx.click();showScreen('game');}
+
+// ============================================================
+// START SCREEN
+// ============================================================
+function renderStart(){
+  document.getElementById('sound-btn').textContent=state.soundEnabled?'🔊':'🔇';
+  document.getElementById('narration-btn').textContent=state.narrationEnabled?'🗣️':'🔇';
+  const kr=document.getElementById('flashcard-row');
+  kr.innerHTML='';
+  const keywords=['chocolate','french_fries','ice_cream','pizza','pasta'];
+  keywords.forEach((food,idx)=>{
+    const pill=document.createElement('div');
+    pill.className='keyword-pill';
+    pill.style.background=FOOD_DATA[food].color;
+    pill.innerHTML='<span class="pill-svg">'+FOOD_SVGS[food]+'</span><span>'+FOOD_DATA[food].label+'</span>';
+    const svg=pill.querySelector('svg');if(svg)svg.style.pointerEvents='none';
+    pill.onclick=()=>speakFlashcard(pill,FOOD_DATA[food].spoken);
+    kr.appendChild(pill);
+    setTimeout(()=>pill.classList.add('flashcard-in'),300+idx*150);
+  });
+  // Characters
+  const cr=document.getElementById('char-row');
+  cr.innerHTML='';
+  CHARACTERS.forEach(c=>{
+    const btn=document.createElement('button');
+    btn.className='char-btn'+(state.characterId===c.id?' selected':'');
+    btn.innerHTML='<span style="font-size:1.5rem;">'+c.emoji+'</span><span>'+c.name+'</span>';
+    btn.onclick=()=>{state.characterId=c.id;saveState();renderStart();if(state.soundEnabled)sfx.click();};
+    cr.appendChild(btn);
+  });
+}
+function speakFlashcard(el,word){if(state.soundEnabled)sfx.click();document.querySelectorAll('.keyword-pill.speaking').forEach(p=>p.classList.remove('speaking'));el.classList.add('speaking');if(window._ft)clearTimeout(window._ft);window._ft=setTimeout(()=>el.classList.remove('speaking'),1500);if(state.narrationEnabled&&window.speechSynthesis){window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(word);u.rate=0.7;u.pitch=1.3;u.volume=1;const vs=window.speechSynthesis.getVoices();const pref=['Google US English','Samantha','Karen','Microsoft Zira'];for(const n of pref){const v=vs.find(v=>v.name.includes(n));if(v){u.voice=v;break;}}window.speechSynthesis.speak(u);}}
+
+// ============================================================
+// MAP SCREEN
+// ============================================================
+function renderMap(){
+  document.getElementById('map-total-stars').textContent=totalStars();
+  const c=document.getElementById('map-container');
+  c.innerHTML='';
+  WORLDS.forEach(w=>{
+    const unlocked=isWorldUnlocked(w.id);
+    const levels=WORLD_LEVEL_ORDER[w.id];
+    const worldStars=levels.reduce((s,id)=>s+(state.progress[id]?.stars||0),0);
+    const maxStars=levels.length*3;
+    let levelsHtml='';
+    levels.forEach((lid,idx)=>{
+      const level=LEVELS.find(l=>l.id===lid);
+      const lu=isLevelUnlocked(lid,w.id);
+      const stars=state.progress[lid]?.stars||0;
+      const completed=state.progress[lid]?.completed;
+      const modeIcons={doYouLike:'👍',listenMatch:'👂',memoryMatch:'🃏',sentenceBuilder:'📝',challenge:'🏆',fivePoint:'⭐'};
+      levelsHtml+=`<button class="level-btn" ${!lu?'disabled':''} onclick="startLevel('${w.id}',${idx})"><div class="level-num" style="color:${w.color}">L${idx+1}</div><div class="level-icon">${lu?modeIcons[level.mode]:'🔒'}</div><div class="level-title">${level.title}</div><div class="level-stars">${[1,2,3].map(n=>`<span class="${n<=stars?'':'dim'}">⭐</span>`).join('')}</div>${completed?'<div class="level-check">✓</div>':''}</button>`;
+    });
+    const card=document.createElement('div');
+    card.className='world-card';
+    card.innerHTML=`<div class="world-header" style="background:${unlocked?w.color:'#6B7280'}"><span class="world-emoji">${w.emoji}</span><div><div class="world-name">${w.name}</div><div class="world-desc">${w.desc}</div></div><div class="world-stars"><span>⭐</span><span>${worldStars}/${maxStars}</span></div></div><div class="levels-grid">${levelsHtml}</div>${!unlocked?'<div class="locked-overlay"><div class="lock">🔒</div><p>Locked!</p><p style="font-size:0.875rem;opacity:0.8">Complete the previous world to unlock</p></div>':''}`;
+    c.appendChild(card);
+  });
+}
+function startLevel(wid,idx){
+  const level=LEVELS.find(l=>l.worldId===wid&&l.index===idx);
+  if(!level)return;
+  state.currentLevel=level;state.currentWorldId=wid;
+  document.getElementById('game-total-stars').textContent=totalStars();
+  renderGameIntro();
+}
+function renderGameIntro(){
+  const level=state.currentLevel;
+  document.getElementById('game-level-info').innerHTML=`<span style="font-size:1rem">${WORLDS.find(w=>w.id===state.currentWorldId)?.emoji||''}</span><span>${level.title}</span>`;
+  const modeHints={doYouLike:'Listen and answer: Yes, I do! or No, I don\'t!',listenMatch:'Listen to the food and tap the matching picture!',memoryMatch:'Flip cards to match the foods!',sentenceBuilder:'Build the sentence by tapping the right words!',challenge:'🏆 CHALLENGE! Mixed questions!',fivePoint:'⭐ BOSS! 5-Point Challenge — answer 5 questions correctly!'};
+  const c=document.getElementById('game-container');
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;"><div class="intro-card"><div style="text-align:center;margin-bottom:1rem;"><div class="intro-age">${level.ageGroup} years</div><h2 class="intro-title">${level.title}</h2></div><div class="intro-question" style="background:#FEF3C7;border-color:#FBBF24;">${modeHints[level.mode]}</div><div class="intro-buttons">${state.narrationEnabled?'<button class="btn btn-blue btn-md" onclick="speakQuestion()">🔊 Hear it</button>':''}<button class="btn btn-green btn-lg" onclick="startGameplay()">Let's Go! 🚀</button></div></div></div>`;
+}
+function speakQuestion(){if(state.soundEnabled)sfx.click();speak("Let's talk about food!");}
+function startGameplay(){if(state.soundEnabled)sfx.click();const l=state.currentLevel;const m=l.mode;if(m==='doYouHave')startDoYouLike();else if(m==='doYouLike')startDoYouLike();else if(m==='listenMatch')startListenMatch();else if(m==='memoryMatch')startMemoryMatch();else if(m==='sentenceBuilder')startSentenceBuilder();else if(m==='challenge')startChallenge();else if(m==='fivePoint')startFivePoint();}
+
+// ============================================================
+// MODE 1: DO YOU LIKE? (Yes/No question)
+// ============================================================
+let dylState=null;
+function startDoYouLike(){
+  const level=state.currentLevel;
+  dylState={food:level.target,like:level.like,selected:null,phase:'asking',mistakes:0};
+  renderDoYouLike();
+  const q=`Do you like ${FOOD_DATA[level.target].spoken}?`;
+  if(state.narrationEnabled)setTimeout(()=>speak(q),300);
+}
+function renderDoYouLike(){
+  const s=dylState;
+  const food=FOOD_DATA[s.food];
+  const c=document.getElementById('game-container');
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;">
+    <div class="question-banner hover-speak" data-speak="Do you like ${food.spoken}?" style="border-color:${food.color};"><p>Do you like <span style="color:${food.color}">${food.label}</span>?</p></div>
+    <div class="food-display">${FOOD_SVGS[s.food]}</div>
+    <div style="text-align:center;font-weight:bold;color:#374151;font-size:1rem;margin:0.5rem 0;">Tap your answer!</div>
+    <div class="yesno-grid">
+      <button class="yesno-btn yes-btn ${s.phase==='correct'&&s.like?'correct':''} ${s.phase==='wrong'&&s.selected==='yes'?'wrong':''}" onclick="dylSelect('yes')" ${s.phase!=='asking'?'disabled':''}>👍<br>Yes, I do!</button>
+      <button class="yesno-btn no-btn ${s.phase==='correct'&&!s.like?'correct':''} ${s.phase==='wrong'&&s.selected==='no'?'wrong':''}" onclick="dylSelect('no')" ${s.phase!=='asking'?'disabled':''}>👎<br>No, I don't!</button>
+    </div>
+  </div>`;
+}
+function dylSelect(answer){
+  const s=dylState;
+  if(s.phase!=='asking')return;
+  s.selected=answer;
+  const correctAnswer=s.like?'yes':'no';
+  if(answer===correctAnswer){
+    if(state.soundEnabled)sfx.correct();
+    s.phase='correct';
+    showConfetti(60);
+    const food=FOOD_DATA[s.food];
+    const response=s.like?`Yes, I like ${food.spoken}!`:`No, I don't like ${food.spoken}!`;
+    showFeedback(response,'correct');
+    if(state.narrationEnabled)setTimeout(()=>speak(response),500);
+    const stars=s.mistakes===0?3:s.mistakes<=2?2:1;
+    const score=Math.max(50,100-s.mistakes*10);
+    setTimeout(()=>completeLevel(stars,score),2500);
+  }else{
+    if(state.soundEnabled)sfx.incorrect();
+    s.phase='wrong';s.mistakes++;
+    showFeedback('Try again! 🤔','wrong');
+    setTimeout(()=>{s.phase='asking';s.selected=null;renderDoYouLike();hideFeedback();},1500);
+  }
+}
+
+// ============================================================
+// MODE 2: LISTEN & MATCH
+// ============================================================
+let lmState=null;
+function startListenMatch(){
+  const level=state.currentLevel;
+  const foods=level.foods||['chocolate','pizza','ice_cream','pasta'];
+  const targetIdx=Math.floor(Math.random()*foods.length);
+  lmState={foods,targetIdx,selected:null,phase:'asking',mistakes:0};
+  renderListenMatch();
+  if(state.narrationEnabled)setTimeout(()=>speak(FOOD_DATA[foods[targetIdx]].spoken),300);
+}
+function renderListenMatch(){
+  const s=lmState;
+  const c=document.getElementById('game-container');
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;">
+    <div class="question-banner hover-speak" data-speak="Listen and tap the matching food!" style="border-color:#22C55E;"><p>👂 Listen and tap the matching food!</p></div>
+    ${state.narrationEnabled?'<div style="text-align:center;margin:0.5rem 0;"><button class="btn btn-blue btn-md" onclick="replayLM()">🔊 Hear again</button></div>':''}
+    <div class="choice-grid" style="grid-template-columns:repeat(2,1fr);max-width:20rem;">
+      ${s.foods.map((f,i)=>{const fd=FOOD_DATA[f];let cls='choice-btn';let st='border-color:'+fd.color+';';if(s.selected===i)st+='background:'+fd.color+'22;';if(s.phase==='correct'&&i===s.targetIdx)cls+=' correct';if(s.phase==='wrong'&&s.selected===i&&i!==s.targetIdx)cls+=' wrong';return '<button class="'+cls+'" style="'+st+'" onclick="lmSelect('+i+')" '+(s.phase!=='asking'?'disabled':'')+'><div style="width:60px;height:60px;margin:0 auto;">'+FOOD_SVGS[f]+'</div><div style="font-size:0.75rem;margin-top:0.25rem;">'+fd.label+'</div></button>';}).join('')}
+    </div>
+  </div>`;
+}
+function replayLM(){if(state.soundEnabled)sfx.click();if(state.narrationEnabled)speak(FOOD_DATA[lmState.foods[lmState.targetIdx]].spoken);}
+function lmSelect(i){
+  const s=lmState;if(s.phase!=='asking')return;
+  s.selected=i;
+  if(i===s.targetIdx){
+    if(state.soundEnabled)sfx.correct();
+    s.phase='correct';showConfetti(60);showFeedback('Correct! 🎉','correct');
+    renderListenMatch();
+    if(state.narrationEnabled)setTimeout(()=>speak(FOOD_DATA[s.foods[s.targetIdx]].spoken+'!'),800);
+    const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);
+    setTimeout(()=>completeLevel(stars,score),2500);
+  }else{
+    if(state.soundEnabled)sfx.incorrect();s.phase='wrong';s.mistakes++;
+    renderListenMatch();showFeedback('Try again! 🤔','wrong');
+    setTimeout(()=>{s.phase='asking';s.selected=null;renderListenMatch();hideFeedback();},1500);
+  }
+}
+
+// ============================================================
+// MODE 3: MEMORY MATCH
+// ============================================================
+let mmState=null;
+function startMemoryMatch(){
+  const level=state.currentLevel;
+  const foods=level.foods||['chocolate','pizza'];
+  const pairs=foods.concat(foods);
+  for(let i=pairs.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pairs[i],pairs[j]]=[pairs[j],pairs[i]];}
+  mmState={cards:pairs.map((f,i)=>({id:i,food:f,flipped:false,matched:false})),flipped:[],matched:0,total:foods.length,mistakes:0,phase:'playing'};
+  renderMemoryMatch();
+}
+function renderMemoryMatch(){
+  const s=mmState;const c=document.getElementById('game-container');
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;">
+    <div class="question-banner hover-speak" data-speak="Flip cards to match the foods!" style="border-color:#8B5CF6;"><p>🃏 Match the food pairs!</p></div>
+    <div class="progress-row"><span style="font-size:0.875rem;font-weight:bold;color:#374151;">Matched:</span><div class="progress-bar"><div class="progress-fill" style="width:${(s.matched/s.total)*100}%;background:#8B5CF6;"></div></div><span style="font-weight:bold;font-size:1.125rem;color:#8B5CF6;">${s.matched}/${s.total}</span></div>
+    <div style="display:grid;grid-template-columns:repeat(${s.cards.length<=4?2:4},1fr);gap:0.5rem;max-width:24rem;margin:0 auto;padding:0.5rem;">
+      ${s.cards.map(card=>{let bg=card.matched?'#D1FAE5':card.flipped?'white':'#8B5CF6';let border=card.matched?'#22C55E':card.flipped?'#8B5CF6':'#7C3AED';return '<button class="choice-btn" style="background:'+bg+';border-color:'+border+';aspect-ratio:1;padding:0.25rem;" onclick="mmFlip('+card.id+')" '+(card.matched||card.flipped||s.phase!=='playing'?'disabled':'')+'>'+(card.flipped||card.matched?'<div style="width:100%;height:100%;">'+FOOD_SVGS[card.food]+'</div>':'<span style="font-size:2rem;">❓</span>')+'</button>';}).join('')}
+    </div>
+  </div>`;
+}
+function mmFlip(id){
+  const s=mmState;if(s.phase!=='playing')return;
+  const card=s.cards.find(c=>c.id===id);if(!card||card.flipped||card.matched)return;
+  card.flipped=true;s.flipped.push(card);if(state.soundEnabled)sfx.click();
+  renderMemoryMatch();
+  if(s.flipped.length===2){
+    s.phase='checking';
+    setTimeout(()=>{
+      if(s.flipped[0].food===s.flipped[1].food){
+        s.flipped[0].matched=true;s.flipped[1].matched=true;s.matched++;
+        if(state.soundEnabled)sfx.correct();
+        if(s.matched===s.total){
+          showConfetti(100);showFeedback('PERFECT! 🎉','correct');
+          if(state.narrationEnabled)setTimeout(()=>speak('Perfect! You matched all the foods!'),500);
+          const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);
+          setTimeout(()=>completeLevel(stars,score),2500);
+        }
+      }else{
+        s.flipped[0].flipped=false;s.flipped[1].flipped=false;s.mistakes++;
+        if(state.soundEnabled)sfx.incorrect();
+      }
+      s.flipped=[];s.phase='playing';renderMemoryMatch();
+    },1000);
+  }
+}
+
+// ============================================================
+// MODE 4: SENTENCE BUILDER
+// ============================================================
+let sbState=null;
+function startSentenceBuilder(){
+  const level=state.currentLevel;
+  const food=FOOD_DATA[level.target];
+  const sentence=level.like?`I like ${food.spoken}.`:`I don't like ${food.spoken}.`;
+  sbState={target:sentence,food:level.target,like:level.like,words:[],phase:'building',mistakes:0};
+  renderSentenceBuilder();
+  if(state.narrationEnabled)setTimeout(()=>speak(sentence),300);
+}
+function renderSentenceBuilder(){
+  const s=sbState;const food=FOOD_DATA[s.food];
+  const c=document.getElementById('game-container');
+  const choices=s.like?['I','like',food.spoken]:['I','don\'t','like',food.spoken];
+  const shuffled=[...choices];for(let i=shuffled.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];}
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;">
+    <div class="question-banner hover-speak" data-speak="Build the sentence!" style="border-color:#F59E0B;"><p>📝 Build the sentence!</p></div>
+    <div class="food-display" style="margin:0.5rem auto;">${FOOD_SVGS[s.food]}</div>
+    <div style="background:white;border:3px dashed #F59E0B;border-radius:0.75rem;padding:1rem;margin:0.5rem;min-height:3rem;display:flex;align-items:center;justify-content:center;gap:0.25rem;flex-wrap:wrap;">
+      ${s.words.map((w,i)=>`<span style="background:${food.color};color:white;padding:0.25rem 0.75rem;border-radius:0.375rem;font-weight:bold;font-size:1rem;">${w}</span>`).join('')}
+      ${s.words.length<s.target.replace('.','').split(' ').length?'<span style="color:#D1D5DB;font-size:1.25rem;">...</span>':''}
+    </div>
+    <div class="choice-grid" style="grid-template-columns:repeat(${shuffled.length<=3?3:4},1fr);max-width:28rem;">
+      ${shuffled.map((w,i)=>'<button class="choice-btn" style="border-color:'+food.color+';color:'+food.color+';" onclick="sbSelect(\''+w.replace(/'/g,"\\'")+'\','+i+')">'+w+'</button>').join('')}
+    </div>
+  </div>`;
+}
+function sbSelect(word,idx){
+  const s=sbState;if(s.phase!=='building')return;
+  s.words.push(word);if(state.soundEnabled)sfx.click();
+  const targetWords=s.target.replace('.','').split(' ');
+  if(s.words.length===targetWords.length){
+    const correct=s.words.every((w,i)=>w===targetWords[i]);
+    if(correct){
+      s.phase='correct';if(state.soundEnabled)sfx.correct();showConfetti(60);
+      showFeedback('Perfect! 🎉','correct');renderSentenceBuilder();
+      if(state.narrationEnabled)setTimeout(()=>speak(s.target),500);
+      const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);
+      setTimeout(()=>completeLevel(stars,score),2500);
+    }else{
+      s.phase='wrong';s.mistakes++;if(state.soundEnabled)sfx.incorrect();
+      showFeedback('Try again! 🤔','wrong');
+      setTimeout(()=>{s.phase='building';s.words=[];renderSentenceBuilder();hideFeedback();},1500);
+    }
+  }else{
+    renderSentenceBuilder();
+  }
+}
+
+// ============================================================
+// MODE 5: CHALLENGE
+// ============================================================
+let chState=null;
+function startChallenge(){
+  const level=state.currentLevel;
+  const foods=level.foods||['chocolate','pizza','ice_cream','pasta'];
+  const rounds=[];const seen=new Set();
+  while(rounds.length<6&&seen.size<foods.length){const f=foods[Math.floor(Math.random()*foods.length)];if(!seen.has(f)){seen.add(f);rounds.push({food:f,like:Math.random()>0.4});}}
+  chState={rounds,currIdx:0,selected:null,phase:'asking',mistakes:0};
+  renderChallenge();
+  const r=rounds[0];if(state.narrationEnabled)setTimeout(()=>speak(`Do you like ${FOOD_DATA[r.food].spoken}?`),300);
+}
+function renderChallenge(){
+  const s=chState;const c=document.getElementById('game-container');
+  if(s.currIdx>=s.rounds.length){
+    if(state.soundEnabled)sfx.fanfare();showConfetti(100);showFeedback('CHALLENGE COMPLETE! 🏆','correct');
+    const stars=s.mistakes===0?3:s.mistakes<=2?2:1;const score=Math.max(50,100-s.mistakes*10);
+    setTimeout(()=>completeLevel(stars,score),2500);return;
+  }
+  const r=s.rounds[s.currIdx];const food=FOOD_DATA[r.food];
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;">
+    <div class="question-banner hover-speak" data-speak="Do you like ${food.spoken}?" style="border-color:#EF4444;"><p>🏆 Challenge ${s.currIdx+1}/${s.rounds.length}: Do you like <span style="color:${food.color}">${food.label}</span>?</p></div>
+    <div class="food-display">${FOOD_SVGS[r.food]}</div>
+    <div class="yesno-grid">
+      <button class="yesno-btn yes-btn ${s.phase==='correct'&&r.like?'correct':''}" onclick="chSelect('yes')" ${s.phase!=='asking'?'disabled':''}>👍<br>Yes!</button>
+      <button class="yesno-btn no-btn ${s.phase==='correct'&&!r.like?'correct':''}" onclick="chSelect('no')" ${s.phase!=='asking'?'disabled':''}>👎<br>No!</button>
+    </div>
+  </div>`;
+}
+function chSelect(answer){
+  const s=chState;if(s.phase!=='asking')return;
+  s.selected=answer;const r=s.rounds[s.currIdx];
+  const correct=r.like?'yes':'no';
+  if(answer===correct){
+    if(state.soundEnabled)sfx.correct();s.phase='correct';
+    const response=r.like?`Yes, I like ${FOOD_DATA[r.food].spoken}!`:`No, I don't like ${FOOD_DATA[r.food].spoken}!`;
+    showFeedback(response,'correct');
+    if(state.narrationEnabled)setTimeout(()=>speak(response),500);
+    setTimeout(()=>{s.currIdx++;s.selected=null;s.phase='asking';renderChallenge();hideFeedback();},2000);
+  }else{
+    if(state.soundEnabled)sfx.incorrect();s.phase='wrong';s.mistakes++;
+    showFeedback('Try again! 🤔','wrong');
+    setTimeout(()=>{s.phase='asking';s.selected=null;renderChallenge();hideFeedback();},1500);
+  }
+}
+
+// ============================================================
+// BOSS MODE: 5-POINT CHALLENGE (AAAA Quality)
+// ============================================================
+let fpState=null;
+const FIVE_POINT_TASKS=[
+  {food:'chocolate',like:true,hint:'Do you like chocolate?'},
+  {food:'spider_pizza',like:false,hint:'Do you like spider pizza?'},
+  {food:'ice_cream',like:true,hint:'Do you like ice cream?'},
+  {food:'snake_fries',like:false,hint:'Do you like snake french fries?'},
+  {food:'pizza',like:true,hint:'Do you like pizza?'},
+];
+function startFivePoint(){
+  fpState={taskIdx:0,answers:[],mistakes:0,phase:'asking',selected:null,score:0};
+  renderFivePoint();
+  const task=FIVE_POINT_TASKS[0];
+  if(state.narrationEnabled)setTimeout(()=>speak(task.hint),400);
+  if(state.soundEnabled){sfx.whoosh();setTimeout(()=>sfx.fanfare(),300);}
+}
+function renderFivePoint(){
+  const s=fpState;const task=FIVE_POINT_TASKS[s.taskIdx];const food=FOOD_DATA[task.food];
+  const c=document.getElementById('game-container');
+  let progressHtml='<div style="display:flex;justify-content:center;gap:0.5rem;margin:0.5rem 0;">';
+  FIVE_POINT_TASKS.forEach((t,i)=>{
+    const done=i<s.taskIdx;const current=i===s.taskIdx;
+    const bg=done?'#22C55E':current?'#FBBF24':'rgba(255,255,255,0.3)';
+    const border=done?'#16A34A':current?'#F59E0B':'rgba(255,255,255,0.4)';
+    progressHtml+=`<div style="width:2.5rem;height:2.5rem;border-radius:50%;background:${bg};border:3px solid ${border};display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:900;color:${done?'white':current?'#7C2D12':'#6B7280'};${current?'animation:pulse-glow 0.8s ease-in-out infinite;':''}">${done?'&#10003;':i+1}</div>`;
+  });
+  progressHtml+='</div>';
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;background:linear-gradient(135deg,#1E3A8A,#0F172A);">
+    <div class="question-banner" style="border-color:#FBBF24;background:rgba(254,243,199,0.9);">
+      <p style="color:#92400E;">⭐ 5-Point Challenge — Question ${s.taskIdx+1} of ${FIVE_POINT_TASKS.length}</p>
+    </div>
+    ${progressHtml}
+    <div class="hover-speak" data-speak="${task.hint}" style="text-align:center;padding:0.75rem 1rem;background:rgba(255,255,255,0.9);border-radius:0.75rem;margin:0.5rem auto;max-width:28rem;cursor:pointer;">
+      <p style="font-size:1.5rem;font-weight:bold;color:#1E3A8A;">${task.hint}</p>
+      <p style="font-size:0.875rem;color:#374151;margin-top:0.25rem;">Tap your answer!</p>
+    </div>
+    <div style="display:flex;justify-content:center;margin:0.5rem auto;filter:drop-shadow(2px 2px 8px rgba(0,0,0,0.3));">
+      <div style="width:120px;height:120px;animation:float 2s ease-in-out infinite;">${FOOD_SVGS[task.food]}</div>
+    </div>
+    <div class="yesno-grid" style="max-width:18rem;">
+      <button class="yesno-btn yes-btn ${s.phase==='correct'&&task.like?'correct':''} ${s.phase==='wrong'&&s.selected==='yes'?'wrong':''}" onclick="fpSelect('yes')" ${s.phase!=='asking'?'disabled':''}>👍<br>Yes, I do!</button>
+      <button class="yesno-btn no-btn ${s.phase==='correct'&&!task.like?'correct':''} ${s.phase==='wrong'&&s.selected==='no'?'wrong':''}" onclick="fpSelect('no')" ${s.phase!=='asking'?'disabled':''}>👎<br>No, I don't!</button>
+    </div>
+  </div>`;
+}
+function fpSelect(answer){
+  const s=fpState;if(s.phase!=='asking')return;
+  s.selected=answer;const task=FIVE_POINT_TASKS[s.taskIdx];
+  const correct=task.like?'yes':'no';
+  if(answer===correct){
+    if(state.soundEnabled){sfx.correct();sfx.pop();}
+    s.phase='correct';s.answers.push({food:task.food,like:task.like,correct:true});
+    s.score++;
+    const response=task.like?`Yes, I like ${FOOD_DATA[task.food].spoken}!`:`No, I don't like ${FOOD_DATA[task.food].spoken}!`;
+    showFeedback(response+' &#127881;','correct');
+    if(state.narrationEnabled)setTimeout(()=>speak(response),400);
+    renderFivePoint();
+    setTimeout(()=>{
+      s.taskIdx++;s.selected=null;
+      if(s.taskIdx>=FIVE_POINT_TASKS.length){
+        completeFivePoint();
+      }else{
+        s.phase='asking';renderFivePoint();hideFeedback();
+        const nextTask=FIVE_POINT_TASKS[s.taskIdx];
+        if(state.narrationEnabled)setTimeout(()=>speak(nextTask.hint),300);
+      }
+    },3500);
+  }else{
+    if(state.soundEnabled)sfx.incorrect();s.phase='wrong';s.mistakes++;
+    showFeedback('Try again! &#129300;','wrong');
+    if(state.narrationEnabled)setTimeout(()=>speak(`Not quite. ${task.hint}`),400);
+    setTimeout(()=>{s.phase='asking';s.selected=null;renderFivePoint();hideFeedback();},2500);
+  }
+}
+function completeFivePoint(){
+  if(state.soundEnabled){sfx.fanfare();setTimeout(()=>sfx.fanfare(),400);setTimeout(()=>sfx.fanfare(),800);}
+  showConfetti(200);
+  const stars=fpState.mistakes===0?3:fpState.mistakes<=2?2:1;
+  const score=Math.max(50,100-fpState.mistakes*10);
+  const level=state.currentLevel;
+  const existing=state.progress[level.id];
+  state.progress[level.id]={stars:Math.max(existing?.stars||0,stars),completed:true,bestScore:Math.max(existing?.bestScore||0,score)};
+  saveState();
+  showFivePointOverview(stars,score);
+  if(state.narrationEnabled)setTimeout(()=>speak('Well done! You completed the 5-Point Challenge!'),500);
+}
+function showFivePointOverview(stars,score){
+  const container=document.getElementById('game-container');
+  let foodsHtml='';
+  FIVE_POINT_TASKS.forEach((task,i)=>{
+    const food=FOOD_DATA[task.food];
+    const answer=task.like?'Yes, I do!':'No, I don\'t!';
+    const bgColor=task.like?'#D1FAE5':'#FEE2E2';
+    const borderColor=task.like?'#22C55E':'#EF4444';
+    foodsHtml+=`<div style="display:flex;align-items:center;gap:0.5rem;background:${bgColor};border-radius:0.75rem;padding:0.5rem;border:2px solid ${borderColor};animation:bounce-in 0.4s ease-out ${i*0.12}s backwards;">
+      <div style="width:40px;height:40px;">${FOOD_SVGS[task.food]}</div>
+      <div style="flex:1;"><div style="font-weight:bold;color:#374151;font-size:0.875rem;">${food.label}</div><div style="font-size:0.75rem;color:#6B7280;">${answer}</div></div>
+      <div style="font-size:1.25rem;">${task.like?'👍':'👎'}</div>
+    </div>`;
+  });
+  container.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;background:linear-gradient(135deg,#1E3A8A,#0F172A);">
+    <div style="background:white;border-radius:1.5rem;padding:1.5rem;max-width:32rem;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.4);text-align:center;">
+      <h1 style="font-size:2.5rem;color:#FBBF24;font-weight:900;margin-bottom:0.25rem;">⭐ 5-Point Challenge Complete! 🎉</h1>
+      <p style="font-size:1.125rem;color:#374151;margin-bottom:0.75rem;">Well done! You completed the challenge!</p>
+      <div style="display:flex;justify-content:center;gap:0.25rem;margin-bottom:0.75rem;">
+        ${[1,2,3].map(n=>`<span style="font-size:2rem;">${n<=stars?'⭐':'☆'}</span>`).join('')}
+      </div>
+      <div style="font-size:1.5rem;font-weight:900;color:#FBBF24;margin:0.5rem 0;">Score: ${fpState.score}/${FIVE_POINT_TASKS.length}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin:0.75rem 0;text-align:left;">${foodsHtml}</div>
+      <div style="font-size:1rem;font-weight:bold;color:#7C2D12;margin-bottom:0.75rem;">Points: ${score}</div>
+      <div style="display:flex;gap:0.5rem;justify-content:center;">
+        <button class="btn btn-gray btn-md" onclick="retryLevel()">🔄 Retry</button>
+        <button class="btn btn-blue btn-md" onclick="goToMap()">🗺️ Map</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('game-total-stars').textContent=totalStars();
+}
+
+// ============================================================
+// COMPLETION & RESULTS
+// ============================================================
+function completeLevel(stars,score){const l=state.currentLevel;const e=state.progress[l.id];state.progress[l.id]={stars:Math.max(e?.stars||0,stars),completed:true,bestScore:Math.max(e?.bestScore||0,score)};saveState();renderResults(stars,score);}
+function renderResults(stars,score){hideFeedback();const l=state.currentLevel;const ms=['KEEP PRACTICING!','GOOD TRY!','GREAT JOB!','AMAZING!'];const msg=ms[stars];const cl=['#9CA3AF','#3B82F6','#22C55E','#FBBF24'];
+  const c=document.getElementById('game-container');
+  c.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;"><div class="result-card"><h2 class="result-message" style="color:${cl[stars]};">${msg}</h2><div class="result-stars">${[1,2,3].map(n=>'<svg class="result-star" viewBox="0 0 24 24"><path d="M12 2 L14.85 8.5 L22 9.27 L16.5 14 L17.95 21 L12 17.5 L6.05 21 L7.5 14 L2 9.27 L9.15 8.5 Z" fill="'+(n<=stars?'#FBBF24':'#E5E7EB')+'" stroke="'+(n<=stars?'#B45309':'#9CA3AF')+'" stroke-width="1.5" stroke-linejoin="round"/></svg>').join('')}</div><div class="result-answer">🍕 Great food learning!</div>${state.narrationEnabled?'<div style="margin-bottom:1rem;"><button class="btn btn-blue btn-sm" onclick="speakAnswer()">🔊 Hear it</button></div>':''}<div class="result-score">Score: <span>${score} points</span></div><div class="result-buttons"><button class="btn btn-gray btn-md" onclick="retryLevel()">🔄 Retry</button><button class="btn btn-blue btn-md" onclick="goToMap()">🗺️ Map</button><button class="btn btn-green btn-lg" onclick="nextLevel()">Next →</button></div></div></div>`;if(state.narrationEnabled)setTimeout(()=>speak('Great job!'),800);}
+function speakAnswer(){if(state.soundEnabled)sfx.click();speak('Great job!');}
+function retryLevel(){if(state.soundEnabled)sfx.click();renderGameIntro();}
+function nextLevel(){const l=state.currentLevel;const wid=state.currentWorldId;const wl=LEVELS.filter(l=>l.worldId===wid);const ni=l.index+1;if(ni<wl.length){const nl=wl.find(l=>l.index===ni);if(nl){if(state.soundEnabled)sfx.whoosh();state.currentLevel=nl;renderGameIntro();return;}}goToMap();}
+
+// ============================================================
+// EFFECTS
+// ============================================================
+function showFeedback(msg,type){const o=document.getElementById('feedback-overlay');const m=document.getElementById('feedback-msg');m.textContent=msg;m.className='feedback-msg feedback-'+type;o.classList.remove('hidden');if(window._ft)clearTimeout(window._ft);window._ft=setTimeout(()=>hideFeedback(),2000);}
+function hideFeedback(){document.getElementById('feedback-overlay').classList.add('hidden');}
+function showConfetti(n){const c=document.getElementById('confetti-container');c.classList.remove('hidden');c.innerHTML='';const cl=['#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#FBBF24'];for(let i=0;i<n;i++){const p=document.createElement('div');p.className='confetti-piece';p.style.left=Math.random()*100+'%';p.style.background=cl[Math.floor(Math.random()*cl.length)];p.style.width=(8+Math.random()*8)+'px';p.style.height=(8+Math.random()*8)+'px';p.style.borderRadius=Math.random()>0.5?'50%':'2px';p.style.animationDuration=(2+Math.random()*2)+'s';p.style.animationDelay=(Math.random()*0.5)+'s';c.appendChild(p);}setTimeout(()=>{c.classList.add('hidden');c.innerHTML='';},3500);}
+
+// ============================================================
+// INIT
+// ============================================================
+function init(){
+  loadState();renderStart();
+  if(window.speechSynthesis){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();}
+  // MutationObserver: auto-bind hover-speak (Rule 28)
+  if(!window._hoverObserver){
+    window._hoverObserver=new MutationObserver(()=>{
+      document.querySelectorAll('.hover-speak:not([data-hover-bound])').forEach(el=>{
+        el.setAttribute('data-hover-bound','1');
+        el.addEventListener('mouseenter',()=>hoverSpeak(el));
+        el.addEventListener('click',e=>{if(e.target===el||el.contains(e.target))hoverSpeak(el);});
+      });
+    });
+    window._hoverObserver.observe(document.body,{childList:true,subtree:true});
+  }
+}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
+document.addEventListener('touchmove',function(e){if(e.target.closest('.map-container'))return;e.preventDefault();},{passive:false});
+</script>
+</body>
+</html>
