@@ -121,11 +121,16 @@ function launchGame(gameId) {
   var html = new TextDecoder('utf-8').decode(bytes);
   var iframe = document.createElement('iframe');
   iframe.className = 'game-frame';
-  // Use blob URL for maximum compatibility
-  var blob = new Blob([html], {type: 'text/html;charset=utf-8'});
-  var url = URL.createObjectURL(blob);
-  iframe.src = url;
   container.appendChild(iframe);
+  setTimeout(function() {
+    try {
+      iframe.contentDocument.open();
+      iframe.contentDocument.write(html);
+      iframe.contentDocument.close();
+    } catch(e) {
+      iframe.setAttribute('srcdoc', html);
+    }
+  }, 50);
   document.getElementById('game-info').textContent = GAMES[gameId].emoji + ' ' + GAMES[gameId].name;
   document.getElementById('game-stars').textContent = gameStars(gameId);
 }
