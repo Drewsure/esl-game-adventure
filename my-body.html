@@ -242,13 +242,13 @@ function bodySVG(highlightPart) {
 function partSVG(part) {
   var svgs = {
     'head': '<svg viewBox="0 0 60 60" width="100%" height="100%"><circle cx="30" cy="30" r="22" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/><path d="M 12 18 Q 18 8 30 10 Q 42 8 48 18 Q 44 22 30 20 Q 16 22 12 18 Z" fill="#92400E" stroke="#451A03" stroke-width="1.5"/><circle cx="24" cy="30" r="3" fill="#1F2937"/><circle cx="36" cy="30" r="3" fill="#1F2937"/><path d="M 26 40 Q 30 44 34 40" stroke="#EF4444" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    'shoulders': '<svg viewBox="0 0 60 60" width="100%" height="100%"><path d="M 10 25 Q 5 20 5 30 L 5 50 L 55 50 L 55 30 Q 55 20 50 25 Q 40 15 30 15 Q 20 15 10 25 Z" fill="#3B82F6" stroke="#1E3A8A" stroke-width="2.5"/><circle cx="15" cy="30" r="4" fill="#1E3A8A"/><circle cx="45" cy="30" r="4" fill="#1E3A8A"/></svg>',
-    'knees': '<svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="22" y="5" width="16" height="25" fill="#1E3A8A" stroke="#0F172A" stroke-width="2" rx="3"/><circle cx="30" cy="32" r="12" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/><rect x="22" y="40" width="16" height="18" fill="#1E3A8A" stroke="#0F172A" stroke-width="2" rx="3"/></svg>',
-    'toes': '<svg viewBox="0 0 60 60" width="100%" height="100%"><ellipse cx="30" cy="40" rx="22" ry="14" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/><circle cx="18" cy="32" r="3" fill="#92400E"/><circle cx="26" cy="30" r="3" fill="#92400E"/><circle cx="34" cy="30" r="3" fill="#92400E"/><circle cx="42" cy="32" r="3" fill="#92400E"/></svg>',
+    'shoulders': '<svg viewBox="0 0 80 80" width="100%" height="100%"><path d="M 10 25 Q 5 20 5 30 L 5 50 L 55 50 L 55 30 Q 55 20 50 25 Q 40 15 30 15 Q 20 15 10 25 Z" fill="#3B82F6" stroke="#1E3A8A" stroke-width="2.5"/><circle cx="15" cy="30" r="4" fill="#1E3A8A"/><circle cx="45" cy="30" r="4" fill="#1E3A8A"/></svg>',
+    'knees': '<svg viewBox="0 0 80 80" width="100%" height="100%"><rect x="22" y="5" width="16" height="25" fill="#1E3A8A" stroke="#0F172A" stroke-width="2" rx="3"/><circle cx="30" cy="32" r="12" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/><rect x="22" y="40" width="16" height="18" fill="#1E3A8A" stroke="#0F172A" stroke-width="2" rx="3"/></svg>',
+    'toes': '<svg viewBox="0 0 80 80" width="100%" height="100%"><ellipse cx="30" cy="40" rx="22" ry="14" fill="#FDE68A" stroke="#92400E" stroke-width="2.5"/><circle cx="18" cy="32" r="3" fill="#92400E"/><circle cx="26" cy="30" r="3" fill="#92400E"/><circle cx="34" cy="30" r="3" fill="#92400E"/><circle cx="42" cy="32" r="3" fill="#92400E"/></svg>',
     'eyes': '<svg viewBox="0 0 60 60" width="100%" height="100%"><circle cx="18" cy="30" r="10" fill="white" stroke="#1F2937" stroke-width="2.5"/><circle cx="42" cy="30" r="10" fill="white" stroke="#1F2937" stroke-width="2.5"/><circle cx="19" cy="31" r="5" fill="#1F2937"/><circle cx="43" cy="31" r="5" fill="#1F2937"/><circle cx="20" cy="29" r="1.5" fill="white"/><circle cx="44" cy="29" r="1.5" fill="white"/></svg>',
     'ears': '<svg viewBox="0 0 60 60" width="100%" height="100%"><ellipse cx="20" cy="30" rx="8" ry="14" fill="#FDE68A" stroke="#92400E" stroke-width="2.5" transform="rotate(-10 20 30)"/><ellipse cx="40" cy="30" rx="8" ry="14" fill="#FDE68A" stroke="#92400E" stroke-width="2.5" transform="rotate(10 40 30)"/><path d="M 17 28 Q 20 32 17 36" stroke="#92400E" stroke-width="1.5" fill="none"/><path d="M 43 28 Q 40 32 43 36" stroke="#92400E" stroke-width="1.5" fill="none"/></svg>',
-    'mouth': '<svg viewBox="0 0 60 60" width="100%" height="100%"><path d="M 10 25 Q 30 45 50 25" stroke="#EF4444" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M 15 28 Q 30 38 45 28" fill="#FCA5A5" stroke="#EF4444" stroke-width="2"/></svg>',
-    'nose': '<svg viewBox="0 0 60 60" width="100%" height="100%"><path d="M 25 15 Q 30 35 35 15 Q 33 30 30 30 Q 27 30 25 15 Z" fill="#FBBF24" stroke="#92400E" stroke-width="2.5"/><circle cx="27" cy="32" r="2" fill="#92400E"/><circle cx="33" cy="32" r="2" fill="#92400E"/></svg>',
+    'mouth': '<svg viewBox="0 0 80 80" width="100%" height="100%"><path d="M 10 25 Q 30 45 50 25" stroke="#EF4444" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M 15 28 Q 30 38 45 28" fill="#FCA5A5" stroke="#EF4444" stroke-width="2"/></svg>',
+    'nose': '<svg viewBox="0 0 80 80" width="100%" height="100%"><path d="M 25 15 Q 30 35 35 15 Q 33 30 30 30 Q 27 30 25 15 Z" fill="#FBBF24" stroke="#92400E" stroke-width="2.5"/><circle cx="27" cy="32" r="2" fill="#92400E"/><circle cx="33" cy="32" r="2" fill="#92400E"/></svg>',
   };
   return svgs[part] || svgs.head;
 }
@@ -619,30 +619,6 @@ function renderChallenge(){
     <div class="body-display">${bodySVG(r.part)}</div>
   </div>`;
 }
-// Override bodyPartTap for challenge mode
-var _origBodyPartTap = bodyPartTap;
-bodyPartTap = function(part) {
-  if (chState && chState.phase === 'asking') {
-    var s = chState;
-    var r = s.rounds[s.currIdx];
-    if (part === r.part) {
-      if (state.soundEnabled) sfx.correct();
-      s.phase = 'correct';
-      showFeedback(BODY_PARTS[part].spoken.charAt(0).toUpperCase()+BODY_PARTS[part].spoken.slice(1)+'! 🎉', 'correct');
-      if (state.narrationEnabled) setTimeout(() => speak(BODY_PARTS[part].spoken + '!'), 500);
-      setTimeout(() => { s.currIdx++; s.phase = 'asking'; renderChallenge(); hideFeedback(); }, 2000);
-    } else {
-      if (state.soundEnabled) sfx.incorrect();
-      s.mistakes++;
-      showFeedback(`That's your `+BODY_PARTS[part].spoken+'! Try again! 🤔', 'wrong');
-      setTimeout(() => hideFeedback(), 2000);
-    }
-    return;
-  }
-  if (tbState && tbState.phase === 'asking') {
-    _origBodyPartTap(part);
-  }
-};
 
 // ============================================================
 // BOSS MODE: BODY QUIZ (AAAA Quality)
@@ -688,46 +664,7 @@ function renderBodyQuiz(){
     <div class="body-display" style="filter:drop-shadow(2px 2px 8px rgba(0,0,0,0.3));">${bodySVG(task.part)}</div>
   </div>`;
 }
-// Override bodyPartTap for boss quiz mode
-var _origBodyPartTap2 = bodyPartTap;
-bodyPartTap = function(part) {
-  if (bqState && bqState.phase === 'asking') {
-    var s = bqState;
-    var task = QUIZ_TASKS[s.taskIdx];
-    if (part === task.part) {
-      if (state.soundEnabled) { sfx.correct(); sfx.pop(); }
-      s.phase = 'correct'; s.score++;
-      s.answers.push({part:task.part,correct:true});
-      showFeedback(BODY_PARTS[part].spoken.charAt(0).toUpperCase()+BODY_PARTS[part].spoken.slice(1)+'! &#127881;', 'correct');
-      if (state.narrationEnabled) setTimeout(() => speak(BODY_PARTS[part].spoken + '!'), 400);
-      renderBodyQuiz();
-      setTimeout(() => {
-        s.taskIdx++;
-        if (s.taskIdx >= QUIZ_TASKS.length) {
-          completeBodyQuiz();
-        } else {
-          s.phase = 'asking';
-          renderBodyQuiz();
-          hideFeedback();
-          var nextTask = QUIZ_TASKS[s.taskIdx];
-          if (state.narrationEnabled) setTimeout(() => speak(nextTask.hint), 300);
-        }
-      }, 3500);
-    } else {
-      if (state.soundEnabled) sfx.incorrect();
-      s.mistakes++;
-      showFeedback(`That's your `+BODY_PARTS[part].spoken+'! Try again! &#129300;', 'wrong');
-      if (state.narrationEnabled) setTimeout(() => speak(`That's your `+BODY_PARTS[part].spoken+'. '+task.hint), 400);
-      setTimeout(() => hideFeedback(), 2500);
-    }
-    return;
-  }
-  if (chState && chState.phase === 'asking') {
-    _origBodyPartTap2(part);
-  } else if (tbState && tbState.phase === 'asking') {
-    _origBodyPartTap2(part);
-  }
-};
+
 function completeBodyQuiz(){
   if(state.soundEnabled){sfx.fanfare();setTimeout(()=>sfx.fanfare(),400);setTimeout(()=>sfx.fanfare(),800);}
   showConfetti(200);
