@@ -111,30 +111,12 @@ function renderHub() {
   });
 }
 function launchGame(gameId) {
-  showScreen('game');
-  var container = document.getElementById('game-container');
-  container.innerHTML = '';
-  var b64 = GAME_B64[gameId];
-  var binary = atob(b64);
-  var bytes = new Uint8Array(binary.length);
-  for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
-  var html = new TextDecoder('utf-8').decode(bytes);
-  var iframe = document.createElement('iframe');
-  iframe.className = 'game-frame';
-  container.appendChild(iframe);
-  setTimeout(function() {
-    try {
-      iframe.contentDocument.open();
-      iframe.contentDocument.write(html);
-      iframe.contentDocument.close();
-    } catch(e) {
-      iframe.setAttribute('srcdoc', html);
-    }
-  }, 50);
-  document.getElementById('game-info').textContent = GAMES[gameId].emoji + ' ' + GAMES[gameId].name;
-  document.getElementById('game-stars').textContent = gameStars(gameId);
+  // Redirect to the standalone game HTML file
+  // This works on ALL browsers and devices - no iframe issues
+  window.location.href = gameId + '.html';
 }
-function goBack() { document.getElementById('game-container').innerHTML = ''; showScreen('hub'); renderHub(); }
+
+function goBack() { window.location.href = 'esl-game-hub.html'; }
 loadSettings();
 renderHub();
 </script>
