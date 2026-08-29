@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -360,7 +360,6 @@ const LEVELS = [
   { id:'ni-6', worldId:'night', index:5, title:'Night Mix', mode:'readClock', ageGroup:'6-9', minuteFilter: m => true },
   { id:'ni-7', worldId:'night', index:6, title:'Night Detective', mode:'challenge', ageGroup:'6-9', minuteFilter: m => true },
   { id:'ni-8', worldId:'night', index:7, title:'Night Master', mode:'challenge', ageGroup:'6-9', minuteFilter: m => true },
-  // BOSS WORLD - Day-in-the-Life Storybook
   { id:'bo-1', worldId:'boss', index:0, title:'📖 A Day in Your Life', mode:'dayInLife', ageGroup:'5-9', minuteFilter: m => true },
 ];
 
@@ -493,24 +492,7 @@ const sfx = {
 };
 function speak(text) { if (!state.narrationEnabled || !window.speechSynthesis) return; window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.8; u.pitch = 1.2; u.volume = 1; const voices = window.speechSynthesis.getVoices(); const preferred = ['Google US English','Samantha','Karen','Microsoft Zira']; for (const name of preferred) { const v = voices.find(v => v.name.includes(name)); if (v) { u.voice = v; break; } } window.speechSynthesis.speak(u); }
 
-// Hover-speak: reads data-speak attribute or stripped text (Rule 27, 28, 30)
-function hoverSpeak(el) {
-  if (!state.narrationEnabled || !window.speechSynthesis) return;
-  var word = el.dataset.speak;
-  if (!word) { word = el.textContent.replace(/[^\x20-\x7E]/g, '').trim(); }
-  if (!word) return;
-  document.querySelectorAll('.hover-speak.speaking').forEach(p => p.classList.remove('speaking'));
-  el.classList.add('speaking');
-  if (window._hsTimer) clearTimeout(window._hsTimer);
-  window._hsTimer = setTimeout(() => el.classList.remove('speaking'), 1500);
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(word);
-  u.rate = 0.75; u.pitch = 1.3; u.volume = 1;
-  const voices = window.speechSynthesis.getVoices();
-  const preferred = ['Google US English','Samantha','Karen','Microsoft Zira'];
-  for (const name of preferred) { const v = voices.find(v => v.name.includes(name)); if (v) { u.voice = v; break; } }
-  window.speechSynthesis.speak(u);
-}
+function hoverSpeak(el){if(!state.narrationEnabled||!window.speechSynthesis)return;var word=el.dataset.speak;if(!word){word=el.textContent.replace(/[^\x20-\x7E]/g,'').trim();}if(!word)return;document.querySelectorAll('.hover-speak.speaking').forEach(p=>p.classList.remove('speaking'));el.classList.add('speaking');if(window._hsTimer)clearTimeout(window._hsTimer);window._hsTimer=setTimeout(()=>el.classList.remove('speaking'),1500);window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(word);u.rate=0.75;u.pitch=1.3;u.volume=1;const voices=window.speechSynthesis.getVoices();const preferred=['Google US English','Samantha','Karen','Microsoft Zira'];for(const n of preferred){const v=voices.find(v=>v.name.includes(n));if(v){u.voice=v;break;}}window.speechSynthesis.speak(u);}
 function stopSpeaking() { if (window.speechSynthesis) window.speechSynthesis.cancel(); }
 
 // ============================================================
@@ -650,6 +632,7 @@ function startGameplay() {
   else if (level.mode === 'memoryMatch') startMemoryMatch();
   else if (level.mode === 'sentenceBuilder') startSentenceBuilder();
   else if (level.mode === 'challenge') startChallenge();
+  else if (level.mode === 'dayInLife') startDayInLife();
 }
 
 // Helper: generate a valid time for a level
@@ -1142,7 +1125,7 @@ function challengeSelect(idx) {
 // ============================================================
 
 // ============================================================
-// BOSS MODE: DAY-IN-THE-LIFE STORYBOOK
+// BOSS MODE: DAY-IN-THE-LIFE STORYBOOK (AAAA)
 // ============================================================
 let dayInLifeState = null;
 const DAY_EVENTS = [
@@ -1155,7 +1138,6 @@ const DAY_EVENTS = [
   { id:'bath',      emoji:'🛁', label:'Bath Time',   defaultTime:{hour:7,minute:0},  spoken:'seven o\'clock',  hint:'Time for a bath!' },
   { id:'sleep',     emoji:'😴', label:'Bedtime',     defaultTime:{hour:8,minute:30}, spoken:'half past eight', hint:'Time for bed!' },
 ];
-
 function startDayInLife() {
   dayInLifeState = { eventIdx: 0, setHour: 12, setMinute: 0, phase: 'setting', mistakes: 0, completedEvents: [] };
   renderDayInLife();
@@ -1163,7 +1145,6 @@ function startDayInLife() {
   if (state.narrationEnabled) setTimeout(() => speak('A day in your life! First: ' + ev.label + '. Set the clock to ' + ev.spoken), 400);
   if (state.soundEnabled) { sfx.whoosh(); setTimeout(() => sfx.fanfare(), 300); }
 }
-
 function renderDayInLife() {
   const s = dayInLifeState;
   const ev = DAY_EVENTS[s.eventIdx];
@@ -1184,10 +1165,8 @@ function renderDayInLife() {
     + '<div class="set-control-btns"><button class="set-btn set-btn-minus" onclick="adjustDayMinute(-5)">−</button><button class="set-btn set-btn-plus" onclick="adjustDayMinute(5)">+</button></div></div></div>'
     + '<div style="text-align:center;margin:0.5rem 0;"><button class="btn btn-green btn-lg" onclick="checkDayInLife()">✓ Check!</button></div></div>';
 }
-
 function adjustDayHour(delta) { const s = dayInLifeState; if (state.soundEnabled) sfx.click(); s.setHour = ((s.setHour - 1 + delta) % 12 + 12) % 12 + 1; renderDayInLife(); }
 function adjustDayMinute(delta) { const s = dayInLifeState; if (state.soundEnabled) sfx.click(); s.setMinute = ((s.setMinute + delta) % 60 + 60) % 60; renderDayInLife(); }
-
 function checkDayInLife() {
   const s = dayInLifeState; const ev = DAY_EVENTS[s.eventIdx];
   if (s.setHour === ev.defaultTime.hour && s.setMinute === ev.defaultTime.minute) {
@@ -1200,8 +1179,7 @@ function checkDayInLife() {
       if (s.eventIdx >= DAY_EVENTS.length) { completeDayInLife(); }
       else { s.setHour = 12; s.setMinute = 0; s.phase = 'setting'; renderDayInLife(); hideFeedback();
         const nextEv = DAY_EVENTS[s.eventIdx];
-        if (state.narrationEnabled) setTimeout(() => speak('Set the clock to ' + nextEv.spoken), 200);
-      }
+        if (state.narrationEnabled) setTimeout(() => speak('Set the clock to ' + nextEv.spoken), 200); }
     }, 3500);
   } else {
     if (state.soundEnabled) sfx.incorrect(); s.mistakes++; s.phase = 'wrong';
@@ -1210,7 +1188,6 @@ function checkDayInLife() {
     setTimeout(() => { s.phase = 'setting'; hideFeedback(); }, 2000);
   }
 }
-
 function completeDayInLife() {
   if (state.soundEnabled) { sfx.fanfare(); setTimeout(() => sfx.fanfare(), 400); setTimeout(() => sfx.fanfare(), 800); }
   showConfetti(200);
@@ -1222,7 +1199,6 @@ function completeDayInLife() {
   showDayOverview(stars, score);
   if (state.narrationEnabled) setTimeout(() => speak('Well done! A perfect day, from morning to night!'), 500);
 }
-
 function showDayOverview(stars, score) {
   const container = document.getElementById('game-container');
   let timelineHtml = '';
@@ -1316,18 +1292,8 @@ function showConfetti(count) {
 function init() {
   loadState();
   renderStart();
-  if (window.speechSynthesis) {
-    // MutationObserver for hover-speak (Rule 28)
-    if (!window._hoverObserver) {
-      window._hoverObserver = new MutationObserver(() => {
-        document.querySelectorAll('.hover-speak:not([data-hover-bound])').forEach(el => {
-          el.setAttribute('data-hover-bound', '1');
-          el.addEventListener('mouseenter', () => hoverSpeak(el));
-          el.addEventListener('click', e => { if (e.target === el || el.contains(e.target)) hoverSpeak(el); });
-        });
-      });
-      window._hoverObserver.observe(document.body, { childList: true, subtree: true });
-    } window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); }
+  if (!window._hoverObserver){window._hoverObserver=new MutationObserver(()=>{document.querySelectorAll('.hover-speak:not([data-hover-bound])').forEach(el=>{el.setAttribute('data-hover-bound','1');el.addEventListener('mouseenter',()=>hoverSpeak(el));el.addEventListener('click',e=>{if(e.target===el||el.contains(e.target))hoverSpeak(el);});});});window._hoverObserver.observe(document.body,{childList:true,subtree:true});}
+  if (window.speechSynthesis) { window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); }
 }
 if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); } else { init(); }
 document.addEventListener('touchmove', function(e) { if (e.target.closest('.map-container') || e.target.closest('.choices-panel')) return; e.preventDefault(); }, { passive: false });
