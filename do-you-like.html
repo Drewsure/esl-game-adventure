@@ -742,7 +742,8 @@ function showConfetti(n){const c=document.getElementById('confetti-container');c
 // INIT
 // ============================================================
 function init(){
-  loadState();renderStart();
+  try{loadState();}catch(e){console.log('loadState error: '+e);}
+  try{renderStart();}catch(e){console.log('renderStart error: '+e);}
   if(window.speechSynthesis){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();}
   // MutationObserver: auto-bind hover-speak (Rule 28)
   if(!window._hoverObserver){

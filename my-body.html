@@ -812,9 +812,10 @@ function showConfetti(n){const c=document.getElementById('confetti-container');c
 // INIT
 // ============================================================
 function init(){
-  loadState();renderStart();
+  try{loadState();}catch(e){console.log('loadState error: '+e);}
+  try{renderStart();}catch(e){console.log('renderStart error: '+e);}
   if(window.speechSynthesis){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();}
-  if(!window._hoverObserver){
+  try{if(!window._hoverObserver){
     window._hoverObserver=new MutationObserver(()=>{
       document.querySelectorAll('.hover-speak:not([data-hover-bound])').forEach(el=>{
         el.setAttribute('data-hover-bound','1');
@@ -824,6 +825,7 @@ function init(){
     });
     window._hoverObserver.observe(document.body,{childList:true,subtree:true});
   }
+}catch(e){console.log('MutationObserver error: '+e);}
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
 document.addEventListener('touchmove',function(e){if(e.target.closest('.map-container'))return;e.preventDefault();},{passive:false});
