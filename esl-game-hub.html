@@ -12,7 +12,7 @@ body { font-family:'Comic Sans MS','Chalkboard SE','Comic Neue','Nunito',system-
 .hub-subtitle { color:rgba(255,255,255,0.8); text-align:center; font-size:1.125rem; font-weight:bold; margin-bottom:1.5rem; }
 .game-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; max-width:42rem; }
 @media(max-width:480px) { .game-grid { grid-template-columns:1fr; } }
-.game-card { border-radius:1.5rem; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.3); border:4px solid rgba(255,255,255,0.2); cursor:pointer; transition:all 0.2s; text-decoration:none; display:block; }
+.game-card { border-radius:1.5rem; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.3); border:4px solid rgba(255,255,255,0.2); cursor:pointer; transition:all 0.2s; display:block; }
 .game-card:hover { transform:translateY(-5px) scale(1.03); box-shadow:0 15px 40px rgba(0,0,0,0.4); }
 .game-card:active { transform:scale(0.97); }
 .game-card-header { padding:1.5rem 1rem; display:flex; flex-direction:column; align-items:center; gap:0.5rem; color:white; }
@@ -27,13 +27,13 @@ body { font-family:'Comic Sans MS','Chalkboard SE','Comic Neue','Nunito',system-
   <h1 class="hub-title">🎮 ESL Game Hub</h1>
   <p class="hub-subtitle">7 Adventure Games for ESL/EFL Learners Ages 3-9</p>
   <div class="game-grid">
-    <a class="game-card" href="preposition-park.html"><div class="game-card-header" style="background:#EC4899;"><div class="game-card-emoji">🏠</div><div class="game-card-name">Preposition Park</div><div class="game-card-desc">ON, IN, UNDER, BY</div></div></a>
-    <a class="game-card" href="veggie-garden.html"><div class="game-card-header" style="background:#22C55E;"><div class="game-card-emoji">🥕</div><div class="game-card-name">Veggie Garden</div><div class="game-card-desc">I like vegetables!</div></div></a>
-    <a class="game-card" href="clock-town.html"><div class="game-card-header" style="background:#3B82F6;"><div class="game-card-emoji">⏰</div><div class="game-card-name">Clock Town</div><div class="game-card-desc">What time is it?</div></div></a>
-    <a class="game-card" href="pet-town.html"><div class="game-card-header" style="background:#F472B6;"><div class="game-card-emoji">🐾</div><div class="game-card-name">Pet Town</div><div class="game-card-desc">Do you have any pets?</div></div></a>
-    <a class="game-card" href="number-town.html"><div class="game-card-header" style="background:#06B6D4;"><div class="game-card-emoji">🔢</div><div class="game-card-name">Number Town</div><div class="game-card-desc">Count 1 to 20!</div></div></a>
-    <a class="game-card" href="do-you-like.html"><div class="game-card-header" style="background:#F59E0B;"><div class="game-card-emoji">🍕</div><div class="game-card-name">Do You Like?</div><div class="game-card-desc">Do you like...?</div></div></a>
-    <a class="game-card" href="my-body.html"><div class="game-card-header" style="background:#8B5CF6;"><div class="game-card-emoji">🧒</div><div class="game-card-name">My Body!</div><div class="game-card-desc">Head, shoulders, knees, toes!</div></div></a>
+    <div class="game-card" onclick="window.location.href='preposition-park.html'"><div class="game-card-header" style="background:#EC4899;"><div class="game-card-emoji">🏠</div><div class="game-card-name">Preposition Park</div><div class="game-card-desc">ON, IN, UNDER, BY</div></div></div>
+    <div class="game-card" onclick="window.location.href='veggie-garden.html'"><div class="game-card-header" style="background:#22C55E;"><div class="game-card-emoji">🥕</div><div class="game-card-name">Veggie Garden</div><div class="game-card-desc">I like vegetables!</div></div></div>
+    <div class="game-card" onclick="window.location.href='clock-town.html'"><div class="game-card-header" style="background:#3B82F6;"><div class="game-card-emoji">⏰</div><div class="game-card-name">Clock Town</div><div class="game-card-desc">What time is it?</div></div></div>
+    <div class="game-card" onclick="window.location.href='pet-town.html'"><div class="game-card-header" style="background:#F472B6;"><div class="game-card-emoji">🐾</div><div class="game-card-name">Pet Town</div><div class="game-card-desc">Do you have any pets?</div></div></div>
+    <div class="game-card" onclick="window.location.href='number-town.html'"><div class="game-card-header" style="background:#06B6D4;"><div class="game-card-emoji">🔢</div><div class="game-card-name">Number Town</div><div class="game-card-desc">Count 1 to 20!</div></div></div>
+    <div class="game-card" onclick="window.location.href='do-you-like.html'"><div class="game-card-header" style="background:#F59E0B;"><div class="game-card-emoji">🍕</div><div class="game-card-name">Do You Like?</div><div class="game-card-desc">Do you like...?</div></div></div>
+    <div class="game-card" onclick="window.location.href='my-body.html'"><div class="game-card-header" style="background:#8B5CF6;"><div class="game-card-emoji">🧒</div><div class="game-card-name">My Body!</div><div class="game-card-desc">Head, shoulders, knees, toes!</div></div></div>
   </div>
   <p class="hub-footer">100% Offline • No Internet Needed • Tap a game to start!</p>
 </div>
